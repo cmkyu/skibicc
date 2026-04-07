@@ -2,19 +2,18 @@
 #include "status.h"
 
 static char* read_file(char* p) {
-  FILE* f = fopen(p, "r");
-  if (!f) {
-    return NULL;
-  }
-  
-  char* out_buf;
+  char* out_buf = NULL;
   size_t out_size;
   FILE* out_stream = open_memstream(&out_buf, &out_size); 
   if (!out_stream) {
-    fclose(f);
-    return NULL;
+    goto cleanup;
   }
 
+  FILE* f = fopen(p, "r");
+  if (!f) {
+    goto cleanup;
+  }
+ 
   int read_res = 1;
   while(read_res) {
     char buf[4096];
@@ -24,6 +23,8 @@ static char* read_file(char* p) {
     }
   }
   fflush(out_stream);
+
+cleanup:
   fclose(out_stream);
   fclose(f);
   return out_buf;
