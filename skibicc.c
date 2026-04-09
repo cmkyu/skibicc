@@ -46,8 +46,9 @@ static char* replace_ext(const char* path, const char* ext) {
   if (*ext_dst) {  // has extension
     strcpy(ext_dst, ext);
   } else {
-    strcpy(out_path, ".");
-    strcpy(out_path, ext);
+    strcpy(ext_dst, ".");
+    ++ext_dst;
+    strcpy(ext_dst, ext);
   }
   return out_path;
 }
