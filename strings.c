@@ -20,7 +20,7 @@ char* string_concat(int n, ...) {
 
   char* cur = malloc(len + 1);
   if (!cur) {
-    exit(1);
+    return NULL;
   }
   char* res = cur;
   va_start(args, n);

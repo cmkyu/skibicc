@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "errors.h"
 #include "lexer.h"
 #include "strings.h"
 
@@ -28,7 +29,7 @@ typedef enum compiler_option {
 static void replace_ext(char* path, const char* ext) {
   path = realloc(path, strlen(path) + strlen(ext) + 1);
   if (!path) {
-    exit(1);
+    error("replace_ext(): failed to realloc path.");
   }
   char* dot = strrchr(path, '.');
   if (!dot) {
@@ -53,7 +54,7 @@ static int run_preprocessor(char* path) {
   // command: cpp -P path_copy -o out_path
   command = string_concat(4, "cpp -P ", path_copy, " -o ", path);
   if (!command) {
-    exit(1);
+    error("run_preprocessor(): failed to allocate command.");
   }
 
   int res = system(command);
@@ -66,6 +67,9 @@ static int run_preprocessor(char* path) {
 static int rm_file(const char* path) {
   // command: rm path
   char* command = string_concat(2, "rm ", path);
+  if (!command) {
+    error("rm_file(): failed to allocate command.");
+  }
   int res = system(command);
   free(command);
   return res;
@@ -106,7 +110,7 @@ int main(int argc, char* argv[]) {
   char* arg = argv[optind];
   char* path = malloc(strlen(arg) + 1);
   if (!path) {
-    exit(1);
+    error("main(): failed to allocate path");
   }
   strcpy(path, argv[optind]);
   printf("Got input file path: %s\n", path);
