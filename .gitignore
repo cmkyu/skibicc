@@ -4,5 +4,8 @@ compile_commands.json
 *.i
 *.s
 bin/*
+test/*.o
+test/*.d
+test/*.txt
 .clang-format
 
