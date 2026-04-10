@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "lexer.h"
+#include "strings.h"
 
 static struct option opts[] = {
     {"lex", no_argument, NULL, 1},
@@ -15,95 +16,50 @@ static struct option opts[] = {
 };
 
 typedef enum compiler_option {
-  LEX,
-  PARSE,
-  CODEGEN,
-  DEFAULT,
+  CO_LEX,
+  CO_PARSE,
+  CO_CODEGEN,
+  CO_DEFAULT,
 } compiler_option;
 
-// Returns a pointer to the dot ('.') character of `path`'s extension. If `path`
-// has no extensions, returns a pointer to the null byte at the end of `path`.
-static char* get_ext(char* path) {
+// Replaces the file extension in `path` with `ext`. If `path` has no extension,
+// add `ext` as its extension. Note that `ext` must contain the dot ('.')
+// character.
+static void replace_ext(char* path, const char* ext) {
+  path = realloc(path, strlen(path) + strlen(ext) + 1);
+  if (!path) {
+    exit(1);
+  }
   char* dot = strrchr(path, '.');
   if (!dot) {
-    return path + strlen(path);
+    dot = path + strlen(path);
   }
-  return dot;
+  strcpy(dot, ext);
 }
 
-// Returns a string with the file extension of `path` replaced with `ext`. If
-// `path` has no extension, add `ext` as its extension. Note that `ext` must
-// contain the dot ('.') character. The caller is responsible for deallocating
-// the returned string.
-static char* replace_ext(const char* path, const char* ext) {
-  char* out_path = malloc(strlen(path) + strlen(ext) + 1);
-  if (!out_path) {
-    return NULL;
-  }
-  strcpy(out_path, path);
-  strcpy(get_ext(out_path), ext);
-  return out_path;
-}
-
-// Concatenates the passed strings and return the result. `n` is the number of
-// arguments. Returns NULL in case of failure.
-// The caller is responsible for deallocating the returned string.
-static char* string_concat(int n, ...) {
-  size_t len = 0;
-  size_t lens[n];
-  va_list args;
-  va_start(args, n);
-  for (int i = 0; i < n; ++i) {
-    const char* s = va_arg(args, const char*);
-    size_t l = strlen(s);
-    len += l;
-    lens[i] = l;
-  }
-  va_end(args);
-
-  char* cur = malloc(len + 1);
-  if (!cur) {
-    return NULL;
-  }
-  char* res = cur;
-  va_start(args, n);
-  for (int i = 0; i < n; ++i) {
-    const char* s = va_arg(args, const char*);
-    memcpy(cur, s, lens[i]);
-    cur += lens[i];
-  }
-  va_end(args);
-  *cur = '\0';
-  return res;
-}
-
-// Runs GNU C preprocessor for file specified by `path`. Returns the path to
-// the output file. Returns NULL in case of failure.
-// The caller is responsible for deallocating the returned string.
-static char* run_preprocessor(const char* path) {
-  char* out_path = NULL;
+// Runs GNU C preprocessor for file specified by `path`. `path` is replaced
+// with the path to the output file after execution finishes.
+static int run_preprocessor(char* path) {
+  char* path_copy = NULL;
   char* command = NULL;
 
-  out_path = replace_ext(path, ".i");
-  if (!out_path) {
-    goto fail;
+  path_copy = malloc(strlen(path) + 1);
+  if (!path_copy) {
+    exit(1);
   }
-  // command: cpp -P path -o out_path
-  command = string_concat(4, "cpp -P ", path, " -o ", out_path);
+  strcpy(path_copy, path);
+
+  replace_ext(path, ".i");
+  // command: cpp -P path_copy -o out_path
+  command = string_concat(4, "cpp -P ", path_copy, " -o ", path);
   if (!command) {
-    goto fail;
+    exit(1);
   }
 
-  if (system(command) != 0) {
-    goto fail;
-  }
+  int res = system(command);
   free(command);
-  return out_path;
-
-fail:
-  free(command);
-  free(out_path);
-  return NULL;
+  free(path_copy);
+  return res;
 }
 
 // Removes the file `path`
@@ -118,7 +74,7 @@ static int rm_file(const char* path) {
 int main(int argc, char* argv[]) {
   int c;
   int opt_index;
-  compiler_option opt = DEFAULT;
+  compiler_option opt = CO_DEFAULT;
   while (1) {
     c = getopt_long_only(argc, argv, "", opts, &opt_index);
     if (c == -1) {
@@ -127,13 +83,13 @@ int main(int argc, char* argv[]) {
 
     switch (c) {
       case 1:
-        opt = LEX;
+        opt = CO_LEX;
         break;
       case 2:
-        opt = PARSE;
+        opt = CO_PARSE;
         break;
       case 3:
-        opt = CODEGEN;
+        opt = CO_CODEGEN;
         break;
       default:
         return 1;
@@ -145,20 +101,21 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   printf("Got argument: %s.\n",
-         opt == DEFAULT ? "<none>" : opts[opt_index].name);
-  char* path = argv[optind];
-  printf("Got input file path: %s\n", path);
-  char* ext = get_ext(path);
-  printf("Got ext: %s\n", ext);
+         opt == CO_DEFAULT ? "<none>" : opts[opt_index].name);
 
-  path = run_preprocessor(path);
+  char* arg = argv[optind];
+  char* path = malloc(strlen(arg) + 1);
   if (!path) {
-    return 1;
+    exit(1);
   }
+  strcpy(path, argv[optind]);
+  printf("Got input file path: %s\n", path);
+
+  run_preprocessor(path);
   char* res = read_file(path);
   printf("Got file: %s\n", res);
-
   rm_file(path);
+
   free(path);
   return 0;
 }
