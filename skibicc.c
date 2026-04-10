@@ -21,8 +21,8 @@ typedef enum compiler_option {
   DEFAULT,
 } compiler_option;
 
-// Returns a pointer to the first character of `path`'s extension. Returns a
-// pointer to the null byte at the end of `path`.
+// Returns a pointer to the first character of `path`'s extension. If `path`
+// has no extensions, returns a pointer to the null byte at the end of `path`.
 static char* get_ext(char* path) {
   char* dot = strchrnul(path, '.');
   if (*dot == '\0') {
@@ -114,6 +114,14 @@ fail:
   return NULL;
 }
 
+// Removes the file `path`
+static int rm_file(const char* path) {
+  char* command = string_concat(2, "rm ", path);
+  int res = system(command);
+  free(command);
+  return res;
+}
+
 int main(int argc, char* argv[]) {
   int c;
   int opt_index;
@@ -157,6 +165,7 @@ int main(int argc, char* argv[]) {
   char* res = read_file(path);
   printf("Got file: %s\n", res);
 
+  rm_file(path);
   free(path);
   return 0;
 }
