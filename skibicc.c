@@ -21,35 +21,27 @@ typedef enum compiler_option {
   DEFAULT,
 } compiler_option;
 
-// Returns a pointer to the first character of `path`'s extension. If `path`
+// Returns a pointer to the dot ('.') character of `path`'s extension. If `path`
 // has no extensions, returns a pointer to the null byte at the end of `path`.
 static char* get_ext(char* path) {
-  char* dot = strchrnul(path, '.');
-  if (*dot == '\0') {
-    return dot;
+  char* dot = strrchr(path, '.');
+  if (!dot) {
+    return path + strlen(path);
   }
-  return dot + 1;
+  return dot;
 }
 
 // Returns a string with the file extension of `path` replaced with `ext`. If
-// `path` has no extension, add `ext` as its extension. Note that `ext` should
-// not contain the dot ('.') character.
-// The caller is responsible for deallocating the returned string.
+// `path` has no extension, add `ext` as its extension. Note that `ext` must
+// contain the dot ('.') character. The caller is responsible for deallocating
+// the returned string.
 static char* replace_ext(const char* path, const char* ext) {
-  // Allocate a little extra in case we need to add "."
-  char* out_path = malloc(strlen(path) + strlen(ext) + 2);
+  char* out_path = malloc(strlen(path) + strlen(ext) + 1);
   if (!out_path) {
     return NULL;
   }
   strcpy(out_path, path);
-  char* ext_dst = get_ext(out_path);
-  if (*ext_dst) {  // has extension
-    strcpy(ext_dst, ext);
-  } else {
-    strcpy(ext_dst, ".");
-    ++ext_dst;
-    strcpy(ext_dst, ext);
-  }
+  strcpy(get_ext(out_path), ext);
   return out_path;
 }
 
@@ -92,7 +84,7 @@ static char* run_preprocessor(const char* path) {
   char* out_path = NULL;
   char* command = NULL;
 
-  out_path = replace_ext(path, "i");
+  out_path = replace_ext(path, ".i");
   if (!out_path) {
     goto fail;
   }
@@ -116,6 +108,7 @@ fail:
 
 // Removes the file `path`
 static int rm_file(const char* path) {
+  // command: rm path
   char* command = string_concat(2, "rm ", path);
   int res = system(command);
   free(command);
