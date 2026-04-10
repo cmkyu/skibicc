@@ -23,29 +23,16 @@ typedef enum compiler_option {
   CO_DEFAULT,
 } compiler_option;
 
-// Replaces the file extension in `path` with `ext`. If `path` has no extension,
-// add `ext` as its extension. Note that `ext` must contain the dot ('.')
-// character.
-static void replace_ext(char* path, const char* ext) {
-  path = realloc(path, strlen(path) + strlen(ext) + 1);
-  if (!path) {
-    error("replace_ext(): failed to realloc path.");
-  }
-  char* dot = strrchr(path, '.');
-  if (!dot) {
-    dot = path + strlen(path);
-  }
-  strcpy(dot, ext);
-}
-
 // Runs GNU C preprocessor for file specified by `path`. `path` is replaced
 // with the path to the output file after execution finishes.
 static int run_preprocessor(char* path) {
   char* path_copy = strdup(path);
   if (!path_copy) {
-    exit(1);
+    error("run_preprocessor(): failed to dup path.");
   }
-  replace_ext(path, ".i");
+  if (!replace_ext(&path, "i")) {
+    error("run_preprocessor(): replace_ext() failed.");
+  }
 
   // command: cpp -P path_copy -o out_path
   char* command = string_concat(4, "cpp -P ", path_copy, " -o ", path);
