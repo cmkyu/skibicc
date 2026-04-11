@@ -3,6 +3,7 @@
 
 #include "../strings.h"
 #include "../unity/unity.h"
+#include "unity_internals.h"
 
 void setUp(void) {}
 
@@ -29,7 +30,7 @@ void test_string_concat(void) {
                                          "/lib/crt0.o ", "hello.o ", "-lc"));
 }
 
-void test_replace_last(void) {
+void test_replace_ext(void) {
   char* p1 = malloc(1024);
 
   strcpy(p1, "../path/to/lexer.c");
@@ -135,6 +136,7 @@ void test_replace_ext_alloc(void) {
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_string_concat);
-  RUN_TEST(test_replace_last);
+  RUN_TEST(test_replace_ext);
+  RUN_TEST(test_replace_ext_alloc);
   return UNITY_END();
 }

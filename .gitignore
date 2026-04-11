@@ -7,5 +7,6 @@ bin/*
 test/*.o
 test/*.d
 test/*.txt
+test/*.out
 .clang-format
 

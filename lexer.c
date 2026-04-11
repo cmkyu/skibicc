@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 char* read_file(char* p) {
   FILE* f = fopen(p, "r");
@@ -34,7 +35,7 @@ char* read_file(char* p) {
 }
 
 // Returns true if `c` matches [a-zA-Z_]. Otherwise returns false.
-static bool is_word_char(char c) { return isalnum(c) || c == '_'; }
+static inline bool is_word_char(char c) { return isalnum(c) || c == '_'; }
 
 uint64_t lex_identifier(const char* s) {
   if (!isalpha(s[0]) && s[0] != '_') {
@@ -53,14 +54,64 @@ uint64_t lex_identifier(const char* s) {
   return s - start;
 }
 
-// TODO: Add support for oct, hex numbers. Add support for suffixes.
-uint64_t lex_constant(const char* s) {
+static int isoctdigit(int c) { return c >= '0' && c <= '8'; }
+
+static int ishexdigit(int c) {
+  return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+// u or U; l or L; ll or LL; Both u or U and l or L; Both u or U and ll or LL.
+// 2 * (2 + 2) * 2 + 6 = 22
+#define INT_SUFFIX_SIZE 22
+// Longest first so that we match them first.
+static char* INT_SUFFIX[INT_SUFFIX_SIZE] = {
+    "uLL", "ull", "ULL", "Ull", "LLu", "llu", "LLU", "llU", "ul", "uL", "Ul",
+    "UL",  "lu",  "Lu",  "lU",  "LU",  "ll",  "LL",  "u",   "U",  "l",  "L",
+};
+
+// If `s` matches any integer suffixes, returns `s` after skipping the suffix.
+// Otherwise returns `s` as-is.
+static const char* consume_int_suffix(const char* s) {
+  for (size_t i = 0; i < INT_SUFFIX_SIZE; ++i) {
+    char* suffix = INT_SUFFIX[i];
+    size_t len = strlen(suffix);
+    if (strncmp(suffix, s, len) == 0) {
+      s += len;
+      return s;
+    }
+  }
+  return s;
+}
+
+// Returns the length of the integer starting at the character pointed to by
+// `s`. Returns 0 if it is not a an integer.
+// `fdigit` is the predicate used to test if characters in `s` belong in the
+// integer.
+// `s` should point to the integer after its prefix has been stripped. ('0' for
+// octal and '0x'/'0X' for hexadecimal.
+static uint64_t lex_integer(const char* s, int (*fdigit)(int)) {
   const char* start = s;
-  while (isdigit(*s)) {
+  while (fdigit(*s)) {
     ++s;
   }
+  if (s == start) {
+    return 0;
+  }
+  s = consume_int_suffix(s);
   if (is_word_char(*s)) {
     return 0;
   }
   return s - start;
+}
+
+uint64_t lex_constant(const char* s) {
+  if (strncmp(s, "0x", 2) == 0 || strncmp(s, "0X", 2) == 0) {
+    s += 2;
+    uint64_t res = lex_integer(s, ishexdigit);
+    return res ? res + 2 : 0;
+  }
+  if (*s == '0') {
+    return lex_integer(s, isoctdigit);
+  }
+  return lex_integer(s, isdigit);
 }
