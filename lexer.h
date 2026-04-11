@@ -1,6 +1,7 @@
 #include <stdint.h>
 
-char* read_file(char* p);
+// Reads a file from `path` and returns its content.
+char* read_file(char* path);
 
 // Returns the length of the identifier starting at the character pointed to
 // by `s`. Returns 0 if it is not an identifier.

@@ -4,10 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
-char* read_file(char* p) {
-  FILE* f = fopen(p, "r");
+char* read_file(char* path) {
+  FILE* f = fopen(path, "r");
   if (!f) {
-    fprintf(stderr, "readfile(): failed to open file: %s.\n", p);
+    fprintf(stderr, "readfile(): failed to open file: %s.\n", path);
     return NULL;
   }
 
@@ -54,14 +54,16 @@ uint64_t lex_identifier(const char* s) {
   return s - start;
 }
 
+// Returns 1 if `c` matches [0-8], otherwise returns 0.
 static int isoctdigit(int c) { return c >= '0' && c <= '8'; }
 
+// Returns 1 if `c` matches [a-fA-F0-9], otherwise returns 0.
 static int ishexdigit(int c) {
   return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 }
 
 // u or U; l or L; ll or LL; Both u or U and l or L; Both u or U and ll or LL.
-// 2 * (2 + 2) * 2 + 6 = 22
+// 6 + (2 * 2 + 2 * 2) * 2 = 22
 #define INT_SUFFIX_SIZE 22
 // Longest first so that we match them first.
 static char* INT_SUFFIX[INT_SUFFIX_SIZE] = {
@@ -72,6 +74,11 @@ static char* INT_SUFFIX[INT_SUFFIX_SIZE] = {
 // If `s` matches any integer suffixes, returns `s` after skipping the suffix.
 // Otherwise returns `s` as-is.
 static const char* consume_int_suffix(const char* s) {
+  char c = tolower(*s);
+  if (c != 'u' && c != 'l') {
+    // Fast path.
+    return s;
+  }
   for (size_t i = 0; i < INT_SUFFIX_SIZE; ++i) {
     char* suffix = INT_SUFFIX[i];
     size_t len = strlen(suffix);
@@ -98,6 +105,7 @@ static uint64_t lex_integer(const char* s, int (*fdigit)(int)) {
     return 0;
   }
   s = consume_int_suffix(s);
+  // Integer must end at word boundary.
   if (is_word_char(*s)) {
     return 0;
   }
