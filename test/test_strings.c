@@ -1,8 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
-
-#include "../strings.h"
-#include "../unity/unity.h"
+#include <strings.h>
+#include <unity.h>
 
 void setUp(void) {}
 
@@ -92,6 +91,10 @@ void test_replace_last(void) {
   TEST_ASSERT_TRUE(replace_ext(&p1, "rst"));
   TEST_ASSERT_EQUAL_STRING("....rst", p1);
 
+  strcpy(p1, "");
+  TEST_ASSERT_TRUE(replace_ext(&p1, "rst"));
+  TEST_ASSERT_EQUAL_STRING(".rst", p1);
+
   free(p1);
 }
 
@@ -116,10 +119,16 @@ void test_replace_ext_alloc(void) {
   TEST_ASSERT_TRUE(replace_ext(&p4, "rst"));
   TEST_ASSERT_EQUAL_STRING(".foo.rst", p4);
 
+  char* p5 = malloc(7);
+  strcpy(p5, "");
+  TEST_ASSERT_TRUE(replace_ext(&p5, "rst"));
+  TEST_ASSERT_EQUAL_STRING(".rst", p5);
+
   free(p1);
   free(p2);
   free(p3);
   free(p4);
+  free(p5);
 }
 
 int main(void) {
