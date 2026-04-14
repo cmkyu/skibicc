@@ -5,12 +5,12 @@
 #define SKIBICC_STRINGS_H
 
 // Concatenates the passed strings and return the result. `n` is the number of
-// arguments. Returns NULL in case of failure.
+// arguments.
 // The caller is responsible for deallocating the returned string.
 char* string_concat(int n, ...);
 
-// Replaces the file extension of `path` with `ext`. Returns true if successful,
-// otherwise returns false.
-bool replace_ext(char** path, const char* ext);
+// Replaces the file extension of `path` with `ext`. If `path` does not have a
+// file extension, `ext` is appended to the end of `path`.
+void replace_ext(char** path, const char* ext);
 
 #endif  // SKIBICC_STRINGS_H

@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "errors.h"
+
 // Fixed seed to deterministic test results.
 const uint64_t SEED = 0x123456;
 // Power of 2 for fast calculation of indices from hash.
@@ -67,11 +69,13 @@ static void rehash(hashmap* map) {
   size_t old_capacity = map->capacity;
   map->capacity *= 2;
   hashmap_entry* arr = calloc(map->capacity, sizeof(hashmap_entry));
-  {
-    hashmap_entry* tmp = map->arr;
-    map->arr = arr;
-    arr = tmp;
+  if (!arr) {
+    error("FATAL: rehash(): calloc() failed.");
   }
+  // Swap.
+  hashmap_entry* tmp = map->arr;
+  map->arr = arr;
+  arr = tmp;
   for (size_t i = 0; i < old_capacity; ++i) {
     if (!arr[i].key) {
       continue;
@@ -83,6 +87,9 @@ static void rehash(hashmap* map) {
 
 void hashmap_init(hashmap* map) {
   map->arr = calloc(INITIAL_SIZE, sizeof(hashmap_entry));
+  if (!map->arr) {
+    error("FATAL: hashmap_init(): calloc() failed.");
+  }
   map->size = 0;
   map->capacity = INITIAL_SIZE;
 }

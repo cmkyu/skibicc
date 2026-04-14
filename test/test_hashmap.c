@@ -25,12 +25,14 @@ void test_hashmap_simple(void) {
   TEST_ASSERT_TRUE(hashmap_insert(&map, &entry));
   hashmap_entry* res = hashmap_get(&map, key, sizeof(key));
   TEST_ASSERT_EQUAL_STRING(key, res->key);
-  TEST_ASSERT_EQUAL_STRING(sizeof(key), res->key_size);
+  TEST_ASSERT_EQUAL(sizeof(key), res->key_size);
   TEST_ASSERT_EQUAL_STRING(data, res->data);
-  TEST_ASSERT_EQUAL_STRING(sizeof(data), res->data);
+  TEST_ASSERT_EQUAL(sizeof(data), res->data_size);
 }
 
-void test_hashmap(void) {
+void test_hashmap_insert_and_get(void) {
+  // Test data courtesy of:
+  // https://github.com/dwyl/english-words/blob/master/words.txt
   FILE* fp = fopen("./test/data/words.txt", "r");
   if (fp == NULL) {
     exit(1);
@@ -73,6 +75,7 @@ void test_hashmap(void) {
 
 int main(void) {
   UNITY_BEGIN();
-  RUN_TEST(test_hashmap);
+  RUN_TEST(test_hashmap_simple);
+  RUN_TEST(test_hashmap_insert_and_get);
   return UNITY_END();
 }

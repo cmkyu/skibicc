@@ -14,6 +14,8 @@ typedef struct hashmap {
   size_t capacity;
 } hashmap;
 
+// TODO: Implement deletion.
+
 // Initializes `map`.
 void hashmap_init(hashmap* map);
 

@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "errors.h"
+
 char* string_concat(int n, ...) {
   size_t len = 0;
   size_t lens[n];
@@ -21,7 +23,7 @@ char* string_concat(int n, ...) {
 
   char* cur = malloc(len + 1);
   if (!cur) {
-    return NULL;
+    error("FATAL: string_concat(): malloc() failed.");
   }
   char* res = cur;
   va_start(args, n);
@@ -35,12 +37,12 @@ char* string_concat(int n, ...) {
   return res;
 }
 
-bool replace_ext(char** path, const char* ext) {
+void replace_ext(char** path, const char* ext) {
   size_t len = strlen(*path);
   // allocate some extra in case we need to add a dot ('.')
   char* s = realloc(*path, len + strlen(ext) + 2);
   if (!s) {
-    return false;
+    error("FATAL: replace_ext(): realloc() failed.");
   }
 
   // get the filename
@@ -63,5 +65,4 @@ bool replace_ext(char** path, const char* ext) {
   ++dot;
   strcpy(dot, ext);
   *path = s;
-  return true;
 }

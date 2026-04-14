@@ -30,9 +30,7 @@ static int run_preprocessor(char* path) {
   if (!path_copy) {
     error("run_preprocessor(): failed to dup path.");
   }
-  if (!replace_ext(&path, "i")) {
-    error("run_preprocessor(): replace_ext() failed.");
-  }
+  replace_ext(&path, "i");
 
   // command: cpp -P path_copy -o out_path
   char* command = string_concat(4, "cpp -P ", path_copy, " -o ", path);
