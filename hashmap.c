@@ -111,11 +111,11 @@ bool hashmap_insert(hashmap* map, const hashmap_entry* entry) {
   return maybe_probe_and_insert(map, entry);
 }
 
-hashmap_entry* hashmap_get(hashmap* map, void* key, size_t key_size) {
+hashmap_entry* hashmap_get(hashmap* map, const void* key, size_t key_size) {
   size_t index = get_index(key, key_size, map->capacity);
   hashmap_entry* res = &map->arr[index];
-  hashmap_entry needle = {
-      .key = key,
+  const hashmap_entry needle = {
+      .key = (void*)key,
       .key_size = key_size,
   };
   while (res->key && !is_key_equal(res, &needle)) {
@@ -126,7 +126,7 @@ hashmap_entry* hashmap_get(hashmap* map, void* key, size_t key_size) {
   return res->key ? res : NULL;
 }
 
-hashmap_entry hashmap_remove(hashmap* map, void* key, size_t key_size) {
+hashmap_entry hashmap_remove(hashmap* map, const void* key, size_t key_size) {
   hashmap_entry* entry = hashmap_get(map, key, key_size);
   hashmap_entry res;
   memset(&res, 0, sizeof(hashmap_entry));

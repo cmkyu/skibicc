@@ -64,6 +64,7 @@ void test_lex_constant_decimal(void) {
   TEST_ASSERT_EQUAL(0, lex_constant("ull"));
   TEST_ASSERT_EQUAL(0, lex_constant("ull123"));
   TEST_ASSERT_EQUAL(0, lex_constant("123ull123"));
+  TEST_ASSERT_EQUAL(0, lex_constant("123ullull"));
   TEST_ASSERT_EQUAL(0, lex_constant("123ullthisdoesnotcount"));
 
   TEST_ASSERT_EQUAL(4, lex_constant("674u"));
@@ -100,6 +101,7 @@ void test_lex_constant_octal(void) {
 
   TEST_ASSERT_EQUAL(0, lex_constant("ull0123"));
   TEST_ASSERT_EQUAL(0, lex_constant("0123ull123"));
+  TEST_ASSERT_EQUAL(0, lex_constant("0123ullull"));
   TEST_ASSERT_EQUAL(0, lex_constant("0123ullthisdoesnotcount"));
 
   TEST_ASSERT_EQUAL(5, lex_constant("0674u"));
@@ -148,6 +150,7 @@ void test_lex_constant_hexadecial(void) {
   TEST_ASSERT_EQUAL(0, lex_constant("0x1a23ull0x1f23"));
   TEST_ASSERT_EQUAL(0, lex_constant("0x12aull0x1b3"));
   TEST_ASSERT_EQUAL(0, lex_constant("0x123ullthisdoesnotcount"));
+  TEST_ASSERT_EQUAL(0, lex_constant("0x123ullull"));
 
   TEST_ASSERT_EQUAL(6, lex_constant("0x674U"));
   TEST_ASSERT_EQUAL(8, lex_constant("0x137llU"));
@@ -190,26 +193,26 @@ void test_lex_keyword(void) {
 
 void test_lex_punctuator(void) {
   char* punctuators[] = {
-      "[",  "]",  "(",  ")",  "{",   "}",   ".",  "->", "++", "--",  "&",  "*",
-      "+",  "-",  "~",  "!",  "/",   "%",   "<<", ">>", "<",  ">",   "<=", ">=",
-      "==", "!=", "^",  "|",  "&&",  "||",  "?",  ":",  ";",  "...", "=",  "*=",
-      "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", ",",   "#",  "##",
+      "[",  "]",  "(",  ")",  "{",  "}",  ".",  "&",  "*",  "+",   "-",   "~",
+      "!",  "/",  "%",  "<",  ">",  "^",  "|",  "?",  ":",  ";",   "=",   ",",
+      "#",  "->", "++", "--", "&&", "||", "*=", "/=", "%=", "+=",  "-=",  "&=",
+      "^=", "|=", "<=", ">=", "==", "!=", "<<", ">>", "##", "<<=", ">>=", "...",
   };
   for (size_t i = 0; i < sizeof(punctuators) / sizeof(punctuators[0]); ++i) {
     const char* punct = punctuators[i];
     TEST_ASSERT_EQUAL(strlen(punct), lex_punctuator(punct));
   }
-  TEST_ASSERT_EQUAL(3, "<<=;");
-  TEST_ASSERT_EQUAL(1, "{this does not count}");
-  TEST_ASSERT_EQUAL(1, "[123456]");
-  TEST_ASSERT_EQUAL(2, "||0||1");
-  TEST_ASSERT_EQUAL(2, "<=x=>");
-  TEST_ASSERT_EQUAL(1, "+2-3/5&6%7");
-  TEST_ASSERT_EQUAL(1, "(+2-3)/(5&6)%7");
+  TEST_ASSERT_EQUAL(3, lex_punctuator("<<=;"));
+  TEST_ASSERT_EQUAL(1, lex_punctuator("{this does not count}"));
+  TEST_ASSERT_EQUAL(1, lex_punctuator("[123456]"));
+  TEST_ASSERT_EQUAL(2, lex_punctuator("||0||1"));
+  TEST_ASSERT_EQUAL(2, lex_punctuator("<=x=>"));
+  TEST_ASSERT_EQUAL(1, lex_punctuator("+2-3/5&6%7"));
+  TEST_ASSERT_EQUAL(1, lex_punctuator("(+2-3)/(5&6)%7"));
 
-  TEST_ASSERT_EQUAL(0, "123456");
-  TEST_ASSERT_EQUAL(0, "foobar");
-  TEST_ASSERT_EQUAL(0, "x;(12+34)");
+  TEST_ASSERT_EQUAL(0, lex_punctuator("123456"));
+  TEST_ASSERT_EQUAL(0, lex_punctuator("foobar"));
+  TEST_ASSERT_EQUAL(0, lex_punctuator("x;(12+34)"));
 }
 
 int main(void) {
@@ -219,5 +222,6 @@ int main(void) {
   RUN_TEST(test_lex_constant_octal);
   RUN_TEST(test_lex_constant_hexadecial);
   RUN_TEST(test_lex_keyword);
+  RUN_TEST(test_lex_punctuator);
   return UNITY_END();
 }

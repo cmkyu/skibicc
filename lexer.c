@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "hashmap.h"
+
 char* read_file(char* path) {
   FILE* f = fopen(path, "r");
   if (!f) {
@@ -75,14 +77,20 @@ static char* KEYWORDS[] = {
 
 static const size_t KEYWORDS_SIZE = sizeof(KEYWORDS) / sizeof(KEYWORDS[0]);
 
-// TODO: implement a hash map for fast lookup.
+static hashmap keywords_map;
+
 bool is_keyword(const char* s, size_t len) {
-  for (size_t i = 0; i < KEYWORDS_SIZE; ++i) {
-    if (strncmp(s, KEYWORDS[i], len) == 0) {
-      return true;
+  if (keywords_map.size == 0) {
+    hashmap_init(&keywords_map);
+    hashmap_entry entry = {.data = NULL, .data_size = 0};
+    for (size_t i = 0; i < KEYWORDS_SIZE; ++i) {
+      entry.key = KEYWORDS[i];
+      entry.key_size = strlen(KEYWORDS[i]);
+      hashmap_insert(&keywords_map, &entry);
     }
   }
-  return false;
+
+  return hashmap_get(&keywords_map, s, len);
 }
 
 // Returns 1 if `c` matches [0-8], otherwise returns 0.
@@ -115,8 +123,7 @@ static const char* consume_int_suffix(const char* s) {
     char* suffix = INT_SUFFIXES[i];
     size_t len = strlen(suffix);
     if (strncmp(suffix, s, len) == 0) {
-      s += len;
-      return s;
+      return s + len;
     }
   }
   return s;
@@ -156,16 +163,20 @@ uint64_t lex_constant(const char* s) {
   return lex_integer(s, isdigit);
 }
 
+// Longest first so that we match them first.
 static char* PUNCTUATORS[] = {
-    "[",  "]",  "(",  ")",  "{",   "}",   ".",  "->", "++", "--",  "&",  "*",
-    "+",  "-",  "~",  "!",  "/",   "%",   "<<", ">>", "<",  ">",   "<=", ">=",
-    "==", "!=", "^",  "|",  "&&",  "||",  "?",  ":",  ";",  "...", "=",  "*=",
-    "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", ",",   "#",  "##",
+    "...", "<<=", ">>=", "<=", ">=", "==", "!=", "->", "++", "--", "<<", ">>",
+    "&&",  "||",  "##",  "*=", "/=", "%=", "+=", "-=", "&=", "^=", "|=", "[",
+    "]",   "(",   ")",   "{",  "}",  ".",  "&",  "*",  "+",  "-",  "~",  "!",
+    "/",   "%",   "<",   ">",  "^",  "|",  "?",  ":",  ";",  "=",  ",",  "#",
 };
 
 const size_t PUNCTUATORS_SIZE = sizeof(PUNCTUATORS) / sizeof(PUNCTUATORS[0]);
 
 uint64_t lex_punctuator(const char* s) {
+  if (!ispunct(*s)) {
+    return 0;
+  }
   for (size_t i = 0; i < PUNCTUATORS_SIZE; ++i) {
     const char* punct = PUNCTUATORS[i];
     size_t len = strlen(punct);
