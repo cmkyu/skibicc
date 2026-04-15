@@ -9,8 +9,6 @@
 
 #include "errors.h"
 
-// Fixed seed to deterministic test results.
-const uint64_t SEED = 0x123456;
 // Power of 2 for fast calculation of indices from hash.
 const size_t INITIAL_SIZE = 256;
 // A bit lower than the optimal 0.7 to be conservative.
@@ -19,13 +17,12 @@ const double LOAD_FACTOR = 0.6;
 // FNV1a hash
 // `key` is the key to be hashed. `key_size` is the size of `key` in bytes.
 // Credit: https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
-static uint32_t FNV(const void* key, size_t key_size) {
-  uint32_t h = SEED;
-  h ^= 2166136261UL;
+static uint64_t fnv1a(const void* key, size_t key_size) {
+  uint64_t h = 0xcbf29ce484222325ULL;
   const uint8_t* data = (const uint8_t*)key;
   for (size_t i = 0; i < key_size; ++i) {
     h ^= data[i];
-    h *= 16777619;
+    h *= 0x100000001b3ULL;
   }
   return h;
 }
@@ -35,7 +32,7 @@ static uint32_t FNV(const void* key, size_t key_size) {
 static size_t get_index(const void* key, size_t key_size, size_t capacity) {
   // Equivalent to hash % (map->capacity) if map->capacity is a power of 2.
   // Credit: https://stackoverflow.com/questions/70089037
-  return FNV(key, key_size) & (capacity - 1);
+  return fnv1a(key, key_size) & (capacity - 1);
 }
 
 // Returns true if `lhs` and `rhs` have the same key. Otherwise returns false.
