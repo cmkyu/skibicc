@@ -16,7 +16,7 @@ const size_t INITIAL_SIZE = 256;
 // A bit lower than the optimal 0.7 to be conservative.
 const double LOAD_FACTOR = 0.6;
 
-// FNV hash
+// FNV1a hash
 // `key` is the key to be hashed. `key_size` is the size of `key` in bytes.
 // Credit: https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
 static uint32_t FNV(const void* key, size_t key_size) {
@@ -30,11 +30,25 @@ static uint32_t FNV(const void* key, size_t key_size) {
   return h;
 }
 
+// Returns the index of `key` inside the entry array, given the array
+// `capacity`. `key_size` is the size of `key` in bytes.
+static size_t get_index(const void* key, size_t key_size, size_t capacity) {
+  // Equivalent to hash % (map->capacity) if map->capacity is a power of 2.
+  // Credit: https://stackoverflow.com/questions/70089037
+  return FNV(key, key_size) & (capacity - 1);
+}
+
 // Returns true if `lhs` and `rhs` have the same key. Otherwise returns false.
-static inline bool is_key_equal(const hashmap_entry* lhs,
-                                const hashmap_entry* rhs) {
+static bool is_key_equal(const hashmap_entry* lhs, const hashmap_entry* rhs) {
   return lhs->key_size == rhs->key_size &&
          strncmp(lhs->key, rhs->key, rhs->key_size) == 0;
+}
+
+// Returns the value of advancing `index` by 1, wrapping back around if it
+// exceeds `capacity`.
+static size_t advance_index(size_t index, size_t capacity) {
+  // Equivalent to (index + 1) % capacity
+  return (index + 1) & (capacity - 1);
 }
 
 // Inserts `entry` into `map`, performing linear probing in case of hash
@@ -42,9 +56,7 @@ static inline bool is_key_equal(const hashmap_entry* lhs,
 // `entry`'s key is already present in `map`) returns false. It is assumed that
 // `map` has enough capacity and its load factor is below the rehash threshold.
 static bool maybe_probe_and_insert(hashmap* map, const hashmap_entry* entry) {
-  // Equivalent to hash % (map->capacity) if map->capacity is a power of 2.
-  // Credit: https://stackoverflow.com/questions/70089037
-  size_t index = FNV(entry->key, entry->key_size) & (map->capacity - 1);
+  size_t index = get_index(entry->key, entry->key_size, map->capacity);
   hashmap_entry* arr_entry = &map->arr[index];
   if (arr_entry->key) {
     if (is_key_equal(arr_entry, entry)) {
@@ -53,7 +65,7 @@ static bool maybe_probe_and_insert(hashmap* map, const hashmap_entry* entry) {
     }
     // Hash collision. Do linear probing.
     while (true) {
-      index = (index + 1) & (map->capacity - 1);
+      index = advance_index(index, map->capacity);
       if (!map->arr[index].key) {
         arr_entry = &map->arr[index];
         break;
@@ -103,7 +115,7 @@ bool hashmap_insert(hashmap* map, const hashmap_entry* entry) {
 }
 
 hashmap_entry* hashmap_get(hashmap* map, void* key, size_t key_size) {
-  size_t index = FNV(key, key_size) & (map->capacity - 1);
+  size_t index = get_index(key, key_size, map->capacity);
   hashmap_entry* res = &map->arr[index];
   hashmap_entry needle = {
       .key = key,
@@ -111,7 +123,7 @@ hashmap_entry* hashmap_get(hashmap* map, void* key, size_t key_size) {
   };
   while (res->key && !is_key_equal(res, &needle)) {
     // Probe linearly when we have a hash collision.
-    index = (index + 1) & (map->capacity - 1);
+    index = advance_index(index, map->capacity);
     res = &map->arr[index];
   }
   return res->key ? res : NULL;
@@ -134,7 +146,7 @@ hashmap_entry hashmap_remove(hashmap* map, void* key, size_t key_size) {
   // the empty slot into the empty slot.
   // See: https://en.wikipedia.org/wiki/Linear_probing#Deletion
   while (cur->key) {
-    if ((FNV(cur->key, cur->key_size) & (map->capacity - 1)) <= index) {
+    if (get_index(cur->key, cur->key_size, map->capacity) <= index) {
       *entry = *cur;
       memset(cur, 0, sizeof(hashmap_entry));
       entry = cur;
