@@ -203,9 +203,11 @@ void test_lex_punctuator(void) {
     TEST_ASSERT_EQUAL(strlen(punct), lex_punctuator(punct));
   }
   TEST_ASSERT_EQUAL(3, lex_punctuator("<<=;"));
+  TEST_ASSERT_EQUAL(3, lex_punctuator("<<==>>"));
   TEST_ASSERT_EQUAL(1, lex_punctuator("{this does not count}"));
   TEST_ASSERT_EQUAL(1, lex_punctuator("[123456]"));
   TEST_ASSERT_EQUAL(2, lex_punctuator("||0||1"));
+  TEST_ASSERT_EQUAL(2, lex_punctuator("||||0||1"));
   TEST_ASSERT_EQUAL(2, lex_punctuator("<=x=>"));
   TEST_ASSERT_EQUAL(1, lex_punctuator("+2-3/5&6%7"));
   TEST_ASSERT_EQUAL(1, lex_punctuator("(+2-3)/(5&6)%7"));

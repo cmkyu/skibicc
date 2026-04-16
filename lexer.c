@@ -163,12 +163,14 @@ uint64_t lex_constant(const char* s) {
   return lex_integer(s, isdigit);
 }
 
-// Longest first so that we match them first.
+// Order matters here. For fast lookup we want the most common punctuators to
+// be at the front, but if it is a prefix of another punctuator, it should be
+// placed behind that punctuator.
 static char* PUNCTUATORS[] = {
-    "...", "<<=", ">>=", "<=", ">=", "==", "!=", "->", "++", "--", "<<", ">>",
-    "&&",  "||",  "##",  "*=", "/=", "%=", "+=", "-=", "&=", "^=", "|=", "[",
-    "]",   "(",   ")",   "{",  "}",  ".",  "&",  "*",  "+",  "-",  "~",  "!",
-    "/",   "%",   "<",   ">",  "^",  "|",  "?",  ":",  ";",  "=",  ",",  "#",
+    ";",  "{",  "}",  "[",   "]",  "(",  ")", ",",   "==", "=",  "...", ".",
+    "++", "+=", "+",  "--",  "->", "-=", "-", "*=",  "*",  "/=", "/",   "%=",
+    "%",  "?",  ":",  "<<=", "<<", "<=", "<", ">>=", ">>", ">=", ">",   "!=",
+    "!",  "&&", "&=", "&",   "||", "|=", "|", "^=",  "^",  "~",  "##",  "#",
 };
 
 const size_t PUNCTUATORS_SIZE = sizeof(PUNCTUATORS) / sizeof(PUNCTUATORS[0]);
