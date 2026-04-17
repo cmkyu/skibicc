@@ -37,11 +37,15 @@ char* read_file(char* path) {
   return out_buf;
 }
 
+// TODO: Remember lexing order: String literals and constants must come before
+// punctuators. This is because string literals and constants may contain
+// characters from punctuators.
+
 // Returns true if `c` matches [a-zA-Z_]. Otherwise returns false.
-static bool iswordchar(char c) { return isalnum(c) || c == '_'; }
+static bool is_word_char(char c) { return isalnum(c) || c == '_'; }
 
 uint64_t lex_identifier(const char* s) {
-  if (!isalpha(s[0]) && s[0] != '_') {
+  if (!isalpha(*s) && *s != '_') {
     return 0;
   }
 
@@ -49,7 +53,7 @@ uint64_t lex_identifier(const char* s) {
   ++s;
   while (true) {
     char c = *s;
-    if (!iswordchar(c)) {
+    if (!is_word_char(c)) {
       break;
     }
     ++s;
@@ -93,14 +97,6 @@ bool is_keyword(const char* s, size_t len) {
   return hashmap_get(&keywords_map, s, len);
 }
 
-// Returns 1 if `c` matches [0-8], otherwise returns 0.
-static int isoctdigit(int c) { return c >= '0' && c <= '8'; }
-
-// Returns 1 if `c` matches [a-fA-F0-9], otherwise returns 0.
-static int ishexdigit(int c) {
-  return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-}
-
 // u or U; l or L; ll or LL; Both u or U and l or L; Both u or U and ll or LL.
 // Longest first so that we match them first.
 static char* INT_SUFFIXES[] = {
@@ -129,38 +125,134 @@ static const char* consume_int_suffix(const char* s) {
   return s;
 }
 
-// Returns the length of the integer starting at the character pointed to by
-// `s`. Returns 0 if it is not a an integer.
-// `fdigit` is the predicate used to test if characters in `s` belong in the
-// integer.
-// `s` should point to the integer after its prefix has been stripped. ('0' for
-// octal and '0x'/'0X' for hexadecimal.
-static uint64_t lex_integer(const char* s, int (*fdigit)(int)) {
-  const char* start = s;
-  while (fdigit(*s)) {
+// Returns 1 if `c` matches [a-fA-F0-9], otherwise returns 0.
+static int is_hex_digit(int c) {
+  return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+// Returns true if `c` is the character 'p' or 'P'. Otherwise returns false.
+static bool is_hex_exp_char(char c) { return tolower(c) == 'p'; }
+
+// If `s` matches the exponent part (excluding the 'e'/'p') of a decimal/hex
+// float, return `s` after skipping the exponent part. Returns NULL if it is not
+// an exponent part.
+static const char* consume_exponent(const char* s) {
+  if (*s == '+' || *s == '-') {
     ++s;
   }
-  if (s == start) {
-    return 0;
+  if (!isdigit(*s)) {
+    return NULL;
+  }
+  while (isdigit(*s)) {
+    ++s;
+  }
+  return s;
+}
+
+// If `s` matches any float suffixes, returns `s` after skipping the suffix.
+// Otherwise returns `s` as-is.
+static const char* consume_float_suffix(const char* s) {
+  char c = tolower(*s);
+  if (c == 'f' || c == 'l') {
+    ++s;
+  }
+  return s;
+}
+
+// If `s` matches a hex integer or float, returns `s` after skipping the hex
+// number. Returns NULL if `s` is not a valid hex number.
+static const char* consume_hex(const char* s) {
+  if (!is_hex_digit(*s) && *s != '.') {
+    return NULL;
+  }
+  if (s[0] == '.' && !is_hex_digit(s[1])) {
+    return NULL;
+  }
+
+  while (is_hex_digit(*s)) {
+    ++s;
+  }
+  if (*s != '.' && !is_hex_exp_char(*s)) {
+    // Integer
+    return consume_int_suffix(s);
+  }
+  // Float
+  if (*s == '.') {
+    ++s;
+    while (is_hex_digit(*s)) {
+      ++s;
+    }
+  }
+  // Hex float requires an exponent.
+  if (!is_hex_exp_char(*s)) {
+    return NULL;
+  }
+  ++s;
+  s = consume_exponent(s);
+  return s ? consume_float_suffix(s) : s;
+}
+
+// Returns 1 if `c` matches [0-8], otherwise returns 0.
+static int is_oct_digit(int c) { return c >= '0' && c <= '8'; }
+
+// If `s` matches an octal number, returns `s` after skipping the octal number.
+// Otherwise returns `s` as-is;
+static const char* consume_oct(const char* s) {
+  while (is_oct_digit(*s)) {
+    ++s;
   }
   s = consume_int_suffix(s);
-  // Integer must end at word boundary.
-  if (iswordchar(*s)) {
-    return 0;
+  return s;
+}
+
+// Returns true if `c` is the character 'e' or 'E'. Otherwise returns false.
+static bool is_dec_exp_char(char c) { return tolower(c) == 'e'; }
+
+// If `s` matches a decimal integer or float, returns `s` after skipping the
+// decimal number. Returns NULL if `s` is not a valid decimal number.
+static const char* consume_dec(const char* s) {
+  if (!isdigit(*s) && *s != '.') {
+    return NULL;
   }
-  return s - start;
+  if (s[0] == '.' && !isdigit(s[1])) {
+    return NULL;
+  }
+
+  while (isdigit(*s)) {
+    ++s;
+  }
+  if (*s != '.' && !is_dec_exp_char(*s)) {
+    // Integer
+    return consume_int_suffix(s);
+  }
+  // Float
+  if (*s == '.') {
+    ++s;
+    while (isdigit(*s)) {
+      ++s;
+    }
+  }
+  if (is_dec_exp_char(*s)) {
+    ++s;
+    s = consume_exponent(s);
+  }
+  return s ? consume_float_suffix(s) : s;
 }
 
 uint64_t lex_constant(const char* s) {
-  if (s[0] == '0') {
-    if (tolower(s[1]) == 'x') {
-      s += 2;
-      uint64_t res = lex_integer(s, ishexdigit);
-      return res ? res + 2 : 0;
-    }
-    return lex_integer(s, isoctdigit);
+  const char* start = s;
+  if (s[0] == '0' && tolower(s[1]) == 'x') {
+    s = consume_hex(s + 2);
+  } else if (s[0] == '0') {
+    s = consume_oct(s);
+  } else {
+    s = consume_dec(s);
   }
-  return lex_integer(s, isdigit);
+  if (!s || is_word_char(*s)) {
+    // Either not a valid constant or does not end at word boundary.
+    return 0;
+  }
+  return s - start;
 }
 
 // Order matters here. For fast lookup we want the most common punctuators to
@@ -188,3 +280,27 @@ uint64_t lex_punctuator(const char* s) {
   }
   return 0;
 }
+
+typedef enum token_type {
+  TK_KW,
+  TK_IDENT,
+  TK_CONST,
+  TK_STRLIT,
+  TK_PUNCT,
+} token_type;
+
+typedef enum constant_type {
+  CT_INT,
+  CT_FLOAT,
+} constant_type;
+
+struct token {
+  token_type token_type;
+  constant_type constant_type;
+  union constant {
+    int64_t int_val;
+    double float_val;
+  } constant;
+  char* loc;
+  size_t size;
+};
