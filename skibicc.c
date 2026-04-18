@@ -23,8 +23,8 @@ typedef enum compiler_option {
   CO_DEFAULT,
 } compiler_option;
 
-// Runs GNU C preprocessor for file specified by `path`. `path` is replaced
-// with the path to the output file after execution finishes.
+//! Runs GNU C preprocessor for file specified by `path`. `path` is replaced
+//! with the path to the output file after execution finishes.
 static int run_preprocessor(char* path) {
   char* path_copy = strdup(path);
   if (!path_copy) {
@@ -43,7 +43,7 @@ static int run_preprocessor(char* path) {
   return res;
 }
 
-// Removes the file `path`
+//! Removes the file `path`.
 static int rm_file(const char* path) {
   // command: rm path
   char* command = string_concat(2, "rm ", path);

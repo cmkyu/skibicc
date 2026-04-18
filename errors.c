@@ -1,3 +1,6 @@
+//!@file
+//!@brief Source file for various error printing functions.
+
 #include "errors.h"
 
 #include <stdarg.h>

@@ -1,3 +1,6 @@
+//!@file
+//!@brief Source file for various string functions.
+
 #include "strings.h"
 
 #include <stdarg.h>

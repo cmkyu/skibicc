@@ -1,3 +1,6 @@
+//!@file
+//!@brief Source file for the hashmap.
+
 #include "hashmap.h"
 
 #include <stdbool.h>
@@ -9,14 +12,14 @@
 
 #include "errors.h"
 
-// Power of 2 for fast calculation of indices from hash.
+//! Power of 2 for fast calculation of indices from hash.
 const size_t INITIAL_SIZE = 256;
-// A bit lower than the optimal 0.7 to be conservative.
+//! A bit lower than the optimal 0.7 to be conservative.
 const double LOAD_FACTOR = 0.6;
 
-// FNV1a hash
-// `key` is the key to be hashed. `key_size` is the size of `key` in bytes.
-// Credit: https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
+//! FNV1a hash.
+//! `key` is the key to be hashed. `key_size` is the size of `key` in bytes.
+//! Credit: https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
 static uint64_t fnv1a(const void* key, size_t key_size) {
   uint64_t h = 0xcbf29ce484222325ULL;
   const uint8_t* data = (const uint8_t*)key;
@@ -27,31 +30,31 @@ static uint64_t fnv1a(const void* key, size_t key_size) {
   return h;
 }
 
-// Returns the index of `key` inside the entry array, given the array
-// `capacity`. `key_size` is the size of `key` in bytes.
+//! Returns the index of `key` inside the entry array, given the array
+//! `capacity`. `key_size` is the size of `key` in bytes.
 static size_t get_index(const void* key, size_t key_size, size_t capacity) {
   // Equivalent to hash % (map->capacity) if map->capacity is a power of 2.
   // Credit: https://stackoverflow.com/questions/70089037
   return fnv1a(key, key_size) & (capacity - 1);
 }
 
-// Returns true if `lhs` and `rhs` have the same key. Otherwise returns false.
+//! Returns true if `lhs` and `rhs` have the same key. Otherwise returns false.
 static bool is_key_equal(const hashmap_entry* lhs, const hashmap_entry* rhs) {
   return lhs->key_size == rhs->key_size &&
          strncmp(lhs->key, rhs->key, rhs->key_size) == 0;
 }
 
-// Returns the value of advancing `index` by 1, wrapping back around if it
-// exceeds `capacity`.
+//! Returns the value of advancing `index` by 1, wrapping back around if it
+//! exceeds `capacity`.
 static size_t advance_index(size_t index, size_t capacity) {
   // Equivalent to (index + 1) % capacity
   return (index + 1) & (capacity - 1);
 }
 
-// Inserts `entry` into `map`, performing linear probing in case of hash
-// collision. Returns true if insertion is successful. Otherwise (i.e.,
-// `entry`'s key is already present in `map`) returns false. It is assumed that
-// `map` has enough capacity and its load factor is below the rehash threshold.
+//! Inserts `entry` into `map`, performing linear probing in case of hash
+//! collision. Returns true if insertion is successful. Otherwise (i.e.,
+//! `entry`'s key is already present in `map`) returns false. It is assumed that
+//! `map` has enough capacity and its load factor is below the rehash threshold.
 static bool maybe_probe_and_insert(hashmap* map, const hashmap_entry* entry) {
   size_t index = get_index(entry->key, entry->key_size, map->capacity);
   hashmap_entry* arr_entry = &map->arr[index];
@@ -74,7 +77,8 @@ static bool maybe_probe_and_insert(hashmap* map, const hashmap_entry* entry) {
   return true;
 }
 
-// Doubles `map`'s capacity and rehashes its elements based on its new capacity.
+//! Doubles `map`'s capacity and rehashes its elements based on its new
+//! capacity.
 static void rehash(hashmap* map) {
   size_t old_capacity = map->capacity;
   map->capacity *= 2;

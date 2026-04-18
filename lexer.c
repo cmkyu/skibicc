@@ -1,3 +1,6 @@
+//!@file
+//!@brief Source file for the lexer.
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -41,7 +44,7 @@ char* read_file(char* path) {
 // punctuators. This is because string literals and constants may contain
 // characters from punctuators.
 
-// Returns true if `c` matches [a-zA-Z_]. Otherwise returns false.
+//! Returns true if `c` matches [a-zA-Z_]. Otherwise returns false.
 static bool is_word_char(char c) { return isalnum(c) || c == '_'; }
 
 uint64_t lex_identifier(const char* s) {
@@ -63,6 +66,7 @@ uint64_t lex_identifier(const char* s) {
   return s - start;
 }
 
+//! C keywords.
 static char* KEYWORDS[] = {
     "auto",     "if",       "unsigned",
     "break",    "inline",   "void",
@@ -81,8 +85,11 @@ static char* KEYWORDS[] = {
     "goto",     "union",
 };
 
+//! Size of `KEYWORDS`.
 static const size_t KEYWORDS_SIZE = sizeof(KEYWORDS) / sizeof(KEYWORDS[0]);
 
+//! Hashmap that stores all the keywords inside `KEYWORDS`. Initialized when
+//! `is_keyword` is first called.
 static hashmap keywords_map;
 
 bool is_keyword(const char* s, size_t len) {
@@ -99,24 +106,26 @@ bool is_keyword(const char* s, size_t len) {
   return hashmap_get(&keywords_map, s, len);
 }
 
-// u or U; l or L; ll or LL; Both u or U and l or L; Both u or U and ll or LL.
-// Longest first so that we match them first.
+//! u or U; l or L; ll or LL; Both u or U and l or L; Both u or U and ll or LL.
+//! Shorter suffixes may be prefixes of longer ones; we put the longest first so
+//! that we match them first.
 static char* INT_SUFFIXES[] = {
     "uLL", "ull", "ULL", "Ull", "LLu", "llu", "LLU", "llU", "ul", "uL", "Ul",
     "UL",  "lu",  "Lu",  "lU",  "LU",  "ll",  "LL",  "u",   "U",  "l",  "L",
 };
 
+//! Size of `INT_SUFFIXES`.
 static const size_t INT_SUFFIXES_SIZE =
     sizeof(INT_SUFFIXES) / sizeof(INT_SUFFIXES[0]);
 
-// If `s` matches any integer suffixes, returns `s` after skipping the suffix.
-// If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
-// returns NULL.
-// Example:
-// Valid suffix: 1234ull;
-// No suffix at all: 1234;
-// Invalid suffix: 1234ulla (integer must end at word boundary, i.e.,
-// must be followed by a character for whom is_word_char() is false)
+//! If `s` matches any integer suffixes, returns `s` after skipping the suffix.
+//! If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
+//! returns NULL.
+//! Example:
+//! Valid suffix: 1234ull;
+//! No suffix at all: 1234;
+//! Invalid suffix: 1234ulla (integer must end at word boundary, i.e.,
+//! must be followed by a character for whom is_word_char() is false)
 static const char* consume_int_suffix(const char* s) {
   char c = tolower(*s);
   if (c != 'u' && c != 'l') {
@@ -136,17 +145,17 @@ static const char* consume_int_suffix(const char* s) {
   return is_word_char(*s) ? NULL : s;
 }
 
-// Returns 1 if `c` matches [a-fA-F0-9], otherwise returns 0.
+//! Returns 1 if `c` matches [a-fA-F0-9], otherwise returns 0.
 static int is_hex_digit(int c) {
   return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 }
 
-// Returns true if `c` is the character 'p' or 'P'. Otherwise returns false.
+//! Returns true if `c` is the character 'p' or 'P'. Otherwise returns false.
 static bool is_hex_exp_char(char c) { return tolower(c) == 'p'; }
 
-// If `s` matches the exponent part (excluding the 'e'/'p') of a decimal/hex
-// float, return `s` after skipping the exponent part. Returns NULL if it is not
-// an exponent part.
+//! If `s` matches the exponent part (excluding the 'e'/'p') of a decimal/hex
+//! float, return `s` after skipping the exponent part. Returns NULL if it is
+//! not an exponent part.
 static const char* consume_exponent(const char* s) {
   if (*s == '+' || *s == '-') {
     ++s;
@@ -160,14 +169,14 @@ static const char* consume_exponent(const char* s) {
   return s;
 }
 
-// If `s` matches any float suffixes, returns `s` after skipping the suffix.
-// If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
-// returns NULL.
-// Example:
-// Valid suffix: 12.34f;
-// No suffix at all: 12.34;
-// Invalid suffix: 12.34fa (float must end at word boundary, i.e., must be
-// followed by a character for whom is_word_char() is false)
+//! If `s` matches any float suffixes, returns `s` after skipping the suffix.
+//! If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
+//! returns NULL.
+//! Example:
+//! Valid suffix: 12.34f;
+//! No suffix at all: 12.34;
+//! Invalid suffix: 12.34fa (float must end at word boundary, i.e., must be
+//! followed by a character for whom is_word_char() is false)
 static const char* consume_float_suffix(const char* s) {
   char c = tolower(*s);
   if (c == 'f' || c == 'l') {
@@ -176,8 +185,8 @@ static const char* consume_float_suffix(const char* s) {
   return is_word_char(*s) ? NULL : s;
 }
 
-// If `s` matches a hex integer or float, returns `s` after skipping the hex
-// number. Returns NULL if `s` is not a valid hex number.
+//! If `s` matches a hex integer or float, returns `s` after skipping the hex
+//! number. Returns NULL if `s` is not a valid hex number.
 static const char* consume_hex(const char* s) {
   if (!is_hex_digit(*s) && *s != '.') {
     return NULL;
@@ -209,15 +218,15 @@ static const char* consume_hex(const char* s) {
   return s ? consume_float_suffix(s) : s;
 }
 
-// Returns 1 if `c` matches [0-8], otherwise returns 0.
+//! Returns 1 if `c` matches [0-8], otherwise returns 0.
 static int is_oct_digit(int c) { return c >= '0' && c <= '8'; }
 
-// Returns true if `c` is the character 'e' or 'E'. Otherwise returns false.
+//! Returns true if `c` is the character 'e' or 'E'. Otherwise returns false.
 static bool is_dec_exp_char(char c) { return tolower(c) == 'e'; }
 
-// If `s` matches a decimal integer, a decimal float or an octal integer,
-// returns `s` after skipping the number. Returns NULL if `s` is not a valid
-// number.
+//! If `s` matches a decimal integer, a decimal float or an octal integer,
+//! returns `s` after skipping the number. Returns NULL if `s` is not a valid
+//! number.
 static const char* consume_dec_or_oct(const char* s) {
   if (!isdigit(*s) && *s != '.') {
     return NULL;
@@ -263,9 +272,9 @@ uint64_t lex_numeric_constant(const char* s) {
   return s ? s - start : 0;
 }
 
-// Order matters here. For fast lookup we want the most common punctuators to
-// be at the front, but if it is a prefix of another punctuator, it should be
-// placed behind that punctuator.
+//! Order matters here. For fast lookup we want the most common punctuators to
+//! be at the front, but if it is a prefix of another punctuator, it should be
+//! placed behind that punctuator.
 static char* PUNCTUATORS[] = {
     ";",  "{",  "}",  "[",   "]",  "(",  ")", ",",   "==", "=",  "...", ".",
     "++", "+=", "+",  "--",  "->", "-=", "-", "*=",  "*",  "/=", "/",   "%=",
@@ -273,6 +282,7 @@ static char* PUNCTUATORS[] = {
     "!",  "&&", "&=", "&",   "||", "|=", "|", "^=",  "^",  "~",  "##",  "#",
 };
 
+//! Size of `PUNCTUATORS`.
 const size_t PUNCTUATORS_SIZE = sizeof(PUNCTUATORS) / sizeof(PUNCTUATORS[0]);
 
 uint64_t lex_punctuator(const char* s) {

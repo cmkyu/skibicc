@@ -1,12 +1,18 @@
+# Compile commands for LSP
 compile_commands.json
+# Build artifacts
 *.o
 *.d
 *.i
 *.s
 bin/*
+# Test artifacts
 test/*.o
 test/*.d
 test/*.txt
 test/*.out
+# Clang format
 .clang-format
-
+# Generated docs
+html/
+latex/
