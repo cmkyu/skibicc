@@ -16,10 +16,10 @@ uint64_t lex_identifier(const char* s);
 // lex_identifier(s) > 0.
 bool is_keyword(const char* s, size_t len);
 
-// Returns the length of the constant starting at the character pointed to by
-// `s`. Returns 0 if it is not a constant.
-// Only decimal, octal and hexadecimal integers are supported for now.
-uint64_t lex_constant(const char* s);
+// Returns the length of the numerical constant (integer and float) starting at
+// the character pointed to by `s`. Returns 0 if it is not a constant. Character
+// constants are not supported yet.
+uint64_t lex_numeric_constant(const char* s);
 
 // Returns the length of the punctuator starting at the character pointed to by
 // `s`. Returns 0 if it is not a punctuator.

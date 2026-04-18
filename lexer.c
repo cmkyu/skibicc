@@ -46,6 +46,8 @@ static bool is_word_char(char c) { return isalnum(c) || c == '_'; }
 
 uint64_t lex_identifier(const char* s) {
   if (!isalpha(*s) && *s != '_') {
+    // TODO these checks should really be moved to the lexer main loop. Then,
+    // if the lex_ methods returns 0, we can emit a nice error message.
     return 0;
   }
 
@@ -108,21 +110,30 @@ static const size_t INT_SUFFIXES_SIZE =
     sizeof(INT_SUFFIXES) / sizeof(INT_SUFFIXES[0]);
 
 // If `s` matches any integer suffixes, returns `s` after skipping the suffix.
-// Otherwise returns `s` as-is.
+// If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
+// returns NULL.
+// Example:
+// Valid suffix: 1234ull;
+// No suffix at all: 1234;
+// Invalid suffix: 1234ulla (integer must end at word boundary, i.e.,
+// must be followed by a character for whom is_word_char() is false)
 static const char* consume_int_suffix(const char* s) {
   char c = tolower(*s);
   if (c != 'u' && c != 'l') {
-    // Fast path.
-    return s;
+    // Integer must end at word boundary.
+    return is_word_char(*s) ? NULL : s;
   }
+
   for (size_t i = 0; i < INT_SUFFIXES_SIZE; ++i) {
     char* suffix = INT_SUFFIXES[i];
     size_t len = strlen(suffix);
     if (strncmp(suffix, s, len) == 0) {
-      return s + len;
+      s += len;
+      break;
     }
   }
-  return s;
+  // Integer must end at word boundary.
+  return is_word_char(*s) ? NULL : s;
 }
 
 // Returns 1 if `c` matches [a-fA-F0-9], otherwise returns 0.
@@ -150,13 +161,19 @@ static const char* consume_exponent(const char* s) {
 }
 
 // If `s` matches any float suffixes, returns `s` after skipping the suffix.
-// Otherwise returns `s` as-is.
+// If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
+// returns NULL.
+// Example:
+// Valid suffix: 12.34f;
+// No suffix at all: 12.34;
+// Invalid suffix: 12.34fa (float must end at word boundary, i.e., must be
+// followed by a character for whom is_word_char() is false)
 static const char* consume_float_suffix(const char* s) {
   char c = tolower(*s);
   if (c == 'f' || c == 'l') {
     ++s;
   }
-  return s;
+  return is_word_char(*s) ? NULL : s;
 }
 
 // If `s` matches a hex integer or float, returns `s` after skipping the hex
@@ -196,7 +213,8 @@ static const char* consume_hex(const char* s) {
 static int is_oct_digit(int c) { return c >= '0' && c <= '8'; }
 
 // If `s` matches an octal number, returns `s` after skipping the octal number.
-// Otherwise returns `s` as-is;
+// Otherwise (i.e., `s` contains an invalid suffix) returns NULL. It is assumed
+// that s[0] is a valid octal digit.
 static const char* consume_oct(const char* s) {
   while (is_oct_digit(*s)) {
     ++s;
@@ -239,7 +257,7 @@ static const char* consume_dec(const char* s) {
   return s ? consume_float_suffix(s) : s;
 }
 
-uint64_t lex_constant(const char* s) {
+uint64_t lex_numeric_constant(const char* s) {
   const char* start = s;
   if (s[0] == '0' && tolower(s[1]) == 'x') {
     s = consume_hex(s + 2);
@@ -248,11 +266,7 @@ uint64_t lex_constant(const char* s) {
   } else {
     s = consume_dec(s);
   }
-  if (!s || is_word_char(*s)) {
-    // Either not a valid constant or does not end at word boundary.
-    return 0;
-  }
-  return s - start;
+  return s ? s - start : 0;
 }
 
 // Order matters here. For fast lookup we want the most common punctuators to

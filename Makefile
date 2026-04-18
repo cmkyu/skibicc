@@ -30,7 +30,7 @@ release: $(EXE)
 $(EXE): $(OBJ) | $(BIN)
 	$(CC) -o $@ $^ $(LIBS)
 
-dir:
+$(BIN):
 	mkdir -p $(BIN)
 
 %.o: %.c
