@@ -46,7 +46,7 @@ static bool is_word_char(char c) { return isalnum(c) || c == '_'; }
 
 uint64_t lex_identifier(const char* s) {
   if (!isalpha(*s) && *s != '_') {
-    // TODO these checks should really be moved to the lexer main loop. Then,
+    // TODO: these checks should really be moved to the lexer main loop. Then,
     // if the lex_ methods returns 0, we can emit a nice error message.
     return 0;
   }

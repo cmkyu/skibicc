@@ -81,6 +81,7 @@ void test_lex_decimal_integer(void) {
 
 void test_lex_octal_integer(void) {
   TEST_ASSERT_EQUAL(1, lex_numeric_constant("0"));
+  TEST_ASSERT_EQUAL(4, lex_numeric_constant("0000"));
   TEST_ASSERT_EQUAL(4, lex_numeric_constant("0234"));
   TEST_ASSERT_EQUAL(16, lex_numeric_constant("0028374651237567"));
   TEST_ASSERT_EQUAL(4, lex_numeric_constant("0234;"));
@@ -119,6 +120,9 @@ void test_lex_octal_integer(void) {
 void test_lex_hex_integer(void) {
   TEST_ASSERT_EQUAL(3, lex_numeric_constant("0x0"));
   TEST_ASSERT_EQUAL(3, lex_numeric_constant("0X0"));
+  TEST_ASSERT_EQUAL(6, lex_numeric_constant("0x0000"));
+  TEST_ASSERT_EQUAL(3, lex_numeric_constant("0xe"));
+  TEST_ASSERT_EQUAL(3, lex_numeric_constant("0xf"));
   TEST_ASSERT_EQUAL(5, lex_numeric_constant("0x123"));
   TEST_ASSERT_EQUAL(5, lex_numeric_constant("0X456"));
   TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x000456"));
@@ -155,6 +159,8 @@ void test_lex_hex_integer(void) {
   TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x123ullull"));
 
   TEST_ASSERT_EQUAL(6, lex_numeric_constant("0x674U"));
+  TEST_ASSERT_EQUAL(6, lex_numeric_constant("0x67eU"));
+  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x67fULL"));
   TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x137llU"));
   TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x6748ll"));
   TEST_ASSERT_EQUAL(7, lex_numeric_constant("0x237lu"));
@@ -174,30 +180,95 @@ void test_lex_decimal_float(void) {
   TEST_ASSERT_EQUAL(6, lex_numeric_constant("7234.L;"));
 
   TEST_ASSERT_EQUAL(8, lex_numeric_constant("8234.e12;"));
-  TEST_ASSERT_EQUAL(8, lex_numeric_constant(".9234e56 "));
+  TEST_ASSERT_EQUAL(10, lex_numeric_constant(".9234E0056 "));
   TEST_ASSERT_EQUAL(12, lex_numeric_constant("4334.1234e33+"));
   TEST_ASSERT_EQUAL(9, lex_numeric_constant("8234.e+12;"));
-  TEST_ASSERT_EQUAL(9, lex_numeric_constant("2234.e-12;"));
-  TEST_ASSERT_EQUAL(9, lex_numeric_constant(".9204e+56 "));
+  TEST_ASSERT_EQUAL(9, lex_numeric_constant("2234.E-12;"));
+  TEST_ASSERT_EQUAL(10, lex_numeric_constant(".9204e+056 "));
   TEST_ASSERT_EQUAL(9, lex_numeric_constant(".5234e-56 "));
   TEST_ASSERT_EQUAL(13, lex_numeric_constant("2434.1234e+33+"));
   TEST_ASSERT_EQUAL(13, lex_numeric_constant("1236.1234e-33+"));
-  TEST_ASSERT_EQUAL(10, lex_numeric_constant("5234.e+12f;"));
+  TEST_ASSERT_EQUAL(10, lex_numeric_constant("5234.E+12f;"));
   TEST_ASSERT_EQUAL(10, lex_numeric_constant(".0234e-56l "));
   TEST_ASSERT_EQUAL(14, lex_numeric_constant("2284.1234e+33F+"));
-  TEST_ASSERT_EQUAL(14, lex_numeric_constant("1904.1234e-33f+"));
+  TEST_ASSERT_EQUAL(14, lex_numeric_constant("1904.1234E-33f+"));
 
+  TEST_ASSERT_EQUAL(2, lex_numeric_constant("0.;"));
+  TEST_ASSERT_EQUAL(2, lex_numeric_constant(".0+"));
+  TEST_ASSERT_EQUAL(5, lex_numeric_constant(".0000+"));
+  TEST_ASSERT_EQUAL(4, lex_numeric_constant("0.00 "));
+  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0.00000f "));
+  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0000.00000f "));
+  TEST_ASSERT_EQUAL(12, lex_numeric_constant("0.00000e000f "));
+  TEST_ASSERT_EQUAL(15, lex_numeric_constant("0000123.000123l+"));
+  TEST_ASSERT_EQUAL(19, lex_numeric_constant("0000123.000123e000l+"));
+
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0f "));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("00000f "));
   TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.a;"));
   TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.e;"));
   TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234a.e12;"));
   TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.e1a2;"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.e/123;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.E/123;"));
   TEST_ASSERT_EQUAL(0, lex_numeric_constant("e"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("E"));
   TEST_ASSERT_EQUAL(0, lex_numeric_constant("."));
   TEST_ASSERT_EQUAL(0, lex_numeric_constant(".e"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".e12f"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".f"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".E12f"));
   TEST_ASSERT_EQUAL(0, lex_numeric_constant(".ef"));
   TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.1234e-33fa"));
+}
+
+void test_lex_hex_float(void) {
+  TEST_ASSERT_EQUAL(9, lex_numeric_constant("0x1a3E.p1;"));
+  TEST_ASSERT_EQUAL(10, lex_numeric_constant("0X.2cD4p23 "));
+  TEST_ASSERT_EQUAL(14, lex_numeric_constant("0xA23b.1234p69+"));
+  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0X4e3B.p78f;"));
+  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0x.5234p00F "));
+  TEST_ASSERT_EQUAL(16, lex_numeric_constant("0Xe2B4.1234p001l+"));
+  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0x7f3E.p17L;"));
+
+  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0xa234.p+12;"));
+  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0Xe23F.p-12;"));
+  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0x.920fp+56 "));
+  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0X.5c3Dp-56 "));
+  TEST_ASSERT_EQUAL(15, lex_numeric_constant("0x24a4.1C34p+33+"));
+  TEST_ASSERT_EQUAL(15, lex_numeric_constant("0Xb2A6.12dFp-33+"));
+  TEST_ASSERT_EQUAL(12, lex_numeric_constant("0xe2a4.p+12f;"));
+  TEST_ASSERT_EQUAL(12, lex_numeric_constant("0x.0dF4p-56l "));
+  TEST_ASSERT_EQUAL(16, lex_numeric_constant("0x2d8E.e234p+33F+"));
+  TEST_ASSERT_EQUAL(16, lex_numeric_constant("0X1b0f.F234p-33f+"));
+
+  TEST_ASSERT_EQUAL(6, lex_numeric_constant("0x0.p0;"));
+  TEST_ASSERT_EQUAL(6, lex_numeric_constant("0x.0p0;"));
+  TEST_ASSERT_EQUAL(7, lex_numeric_constant("0x0.0p0;"));
+  TEST_ASSERT_EQUAL(7, lex_numeric_constant("0X.0p+0+"));
+  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0X.00p00 "));
+  TEST_ASSERT_EQUAL(9, lex_numeric_constant("0x.0000p1+"));
+  TEST_ASSERT_EQUAL(14, lex_numeric_constant("0x000.0000p-00+"));
+  TEST_ASSERT_EQUAL(27, lex_numeric_constant("0x0000abc123.000abc123p123l+"));
+
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0f "));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("00000f "));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x123.456;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x1a34.z;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x12b4.p;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x1a34.a1bc;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x1a34.a1bcp;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x1a34.a1bcp12ab;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x1a34.a1bcpa12;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x12z4a.p12;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x1234.p/123;"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("p"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".p"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".p12f"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".pf"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0xp"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x."));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x.p"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x.p123"));
+  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x1234.1234p-33fa"));
 }
 
 void test_lex_keyword(void) {
@@ -262,6 +333,7 @@ int main(void) {
   RUN_TEST(test_lex_octal_integer);
   RUN_TEST(test_lex_hex_integer);
   RUN_TEST(test_lex_decimal_float);
+  RUN_TEST(test_lex_hex_float);
   RUN_TEST(test_lex_keyword);
   RUN_TEST(test_lex_punctuator);
   return UNITY_END();
