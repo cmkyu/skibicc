@@ -1,3 +1,6 @@
+#ifndef SKIBICC_HASHMAP_H
+#define SKIBICC_HASHMAP_H
+
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -36,3 +39,5 @@ hashmap_entry hashmap_remove(hashmap* map, const void* key, size_t key_size);
 // the heap.
 // It's the caller's responsibility to free `map` itself.
 void hashmap_destroy(hashmap* map);
+
+#endif

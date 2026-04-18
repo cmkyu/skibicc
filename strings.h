@@ -1,8 +1,8 @@
-#include <stdbool.h>
-#include <stdint.h>
-
 #ifndef SKIBICC_STRINGS_H
 #define SKIBICC_STRINGS_H
+
+#include <stdbool.h>
+#include <stdint.h>
 
 // Concatenates the passed strings and return the result. `n` is the number of
 // arguments.

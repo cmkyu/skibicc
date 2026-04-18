@@ -1,3 +1,6 @@
+#ifndef SKIBICC_LEXER_H
+#define SKIBICC_LEXER_H
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -25,3 +28,5 @@ uint64_t lex_numeric_constant(const char* s);
 // `s`. Returns 0 if it is not a punctuator.
 // Digraphs and trigrpans are not supported.
 uint64_t lex_punctuator(const char* s);
+
+#endif
