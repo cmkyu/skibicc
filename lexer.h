@@ -29,13 +29,13 @@ uint64_t lex_punctuator(const char* s);
 //! Returns the length of the character constant starting at the character
 //! pointed to by `s`. Returns 0 if it is not a constant.
 //!
-//! Some notes on form of character literal:
+//! Some notes on the form of character literal:
 //! If preceded by 'L, 'u' or 'U', it is a wide char and can only have 1
 //! character.
 //! For non-wide char, multiple characters like like '1234' 'abcd' 'asdf\x214'
 //! are supported. They are translated into integer byte by byte.
 //! Unsupported escape sequences will get translated into the character after
-//! the slash, so given '\p' '\o', they are translated into 'p', 'o'.
+//! the slash, so for example given '\o', it is translated into 'o'.
 uint64_t lex_char_constant(const char* s);
 
 #endif  // SKIBICC_LEXER_H
