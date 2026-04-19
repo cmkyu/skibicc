@@ -120,7 +120,7 @@ static const size_t INT_SUFFIXES_SIZE =
 
 //! If `s` matches any integer suffixes, returns `s` after skipping the suffix.
 //! If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
-//! returns NULL.
+//! returns `NULL`.
 //! Example:
 //! Valid suffix: 1234ull;
 //! No suffix at all: 1234;
@@ -154,7 +154,7 @@ static int is_hex_digit(int c) {
 static bool is_hex_exp_char(char c) { return tolower(c) == 'p'; }
 
 //! If `s` matches the exponent part (excluding the 'e'/'p') of a decimal/hex
-//! float, return `s` after skipping the exponent part. Returns NULL if it is
+//! float, return `s` after skipping the exponent part. Returns `NULL` if it is
 //! not an exponent part.
 static const char* consume_exponent(const char* s) {
   if (*s == '+' || *s == '-') {
@@ -171,7 +171,7 @@ static const char* consume_exponent(const char* s) {
 
 //! If `s` matches any float suffixes, returns `s` after skipping the suffix.
 //! If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
-//! returns NULL.
+//! returns `NULL`.
 //! Example:
 //! Valid suffix: 12.34f;
 //! No suffix at all: 12.34;
@@ -186,7 +186,7 @@ static const char* consume_float_suffix(const char* s) {
 }
 
 //! If `s` matches a hex integer or float, returns `s` after skipping the hex
-//! number. Returns NULL if `s` is not a valid hex number.
+//! number. Returns `NULL` if `s` is not a valid hex number.
 static const char* consume_hex(const char* s) {
   if (!is_hex_digit(*s) && *s != '.') {
     return NULL;
@@ -225,7 +225,7 @@ static int is_oct_digit(int c) { return c >= '0' && c <= '8'; }
 static bool is_dec_exp_char(char c) { return tolower(c) == 'e'; }
 
 //! If `s` matches a decimal integer, a decimal float or an octal integer,
-//! returns `s` after skipping the number. Returns NULL if `s` is not a valid
+//! returns `s` after skipping the number. Returns `NULL` if `s` is not a valid
 //! number.
 static const char* consume_dec_or_oct(const char* s) {
   if (!isdigit(*s) && *s != '.') {
@@ -297,6 +297,154 @@ uint64_t lex_punctuator(const char* s) {
     }
   }
   return 0;
+}
+
+// Returns true if `c` is a character literal prefix. Otherwise returns false.
+static bool is_char_prefix(char c) { return c == 'L' || tolower(c) == 'u'; }
+
+// Returns true if `c` is a valid escape character. Otherwise returns false.
+static bool is_escape_char(char c) {
+  return c == '\'' || c == '\"' || c == '?' || c == '\\' || c == 'a' ||
+         c == 'b' || c == 'f' || c == 'n' || c == 'r' || c == 't' || c == 'v';
+}
+
+//! If `s` matches an escape sequence (characters after the slash '\'), returns
+//! `s` after skipping the sequence. Returns `NULL` if `s` contains an invalid
+//! hex escape sequence. It is assumed that `s` does not start with the slash
+//! '\'. It is guaranteed that the return result is either `NULL` or `s`
+//! advanced by at least 1 character.
+//!
+//! Some details on escape sequences:
+//! '\t', '\n', etc are legitimate escape sequences. We skip 1 character. We
+//! return `s` + 1.
+//! '\0', '\123', etc are legitimate octal escape sequences. We skip all digits.
+//! Sequences like '\v', '\o', '\wyz', ... does not contain supported escape
+//! characters, but we still treat them as if they are escape characters. We
+//! skip 1 character and return `s` + 1.
+//! Sequences like '\1234', '\0000', '\129', '\9',... are not considered as
+//! octal escape sequence, we treat them like non-supported escape character and
+//! return `s` + 1.
+//! Sequences like '\x', '\xabc', '\xyz' are invalid hex escape sequences (they
+//! must contain at least 1 and at most 2 hex digits after 'x'), we return
+//! `NULL`.
+static const char* consume_escape_sequence(const char* s) {
+  if (is_escape_char(*s)) {
+    ++s;
+    return s;
+  }
+  if (*s == 'x') {
+    ++s;
+    size_t len = 0;
+    while (is_hex_digit(*s)) {
+      ++s;
+      ++len;
+      if (len > 2) {
+        // At most 2 hex digits are allowed.
+        return NULL;
+      }
+    }
+    // No hex digits is an error.
+    return len == 0 ? NULL : s;
+  }
+  if (!is_oct_digit(*s)) {
+    // TODO: this would be a good place to issue a warning about unknown escape
+    // sequence. This is a case of "weird" escape character. So given something
+    // like '\p', '\9', we should translate it into 'p' and '9'.
+    return s + 1;
+  }
+  const char* start = s;
+  size_t len = 0;
+  while (is_oct_digit(*s)) {
+    ++s;
+    ++len;
+    if (len > 3) {
+      // Not an octal escape sequence if we have no or >3 octal digits.
+      // TODO: Remember if we reach here, this is also a case of "weird" escape
+      // character. So given something like '\1234', we should translate it into
+      // '1234'.
+      return start + 1;
+    }
+  }
+  return s;
+}
+
+//! If `s` matches the "body" of a character literal, that is, the content
+//! between the single quotes ("'"), returns `s` after skipping the body (note
+//! that it does NOT skip the terminating single quote). Returns `NULL` if `s`
+//! contains no character body, or if `s` does not have a terminating single
+//! quote character, or if `s` contains an invalid hex escape sequence. It is
+//! assumed that `s` does not start with a single quote.
+static const char* consume_char_body(const char* s) {
+  if (*s == '\'') {
+    // Empty char body.
+    return NULL;
+  }
+  // Consume the rest of the characters.
+  while (*s != '\0' && *s != '\n') {
+    if (*s == '\'') {
+      // End of char literal.
+      return s;
+    }
+    if (*s == '\\') {
+      ++s;
+      s = consume_escape_sequence(s);
+      if (!s) {
+        return NULL;
+      }
+      continue;
+    }
+    ++s;
+  }
+  // Unterminated char literal.
+  return NULL;
+}
+
+//! If `s` matches the "body" of a wide character literal, that is, the content
+//! between the single quotes ("'"), returns `s` after skipping the body (note
+//! that it does NOT skip the terminating single quote). Returns `NULL` if `s`
+//! contains no character body, or if `s` does not have a terminating single
+//! quote character, or if `s` contains more than 1 character. It is assumed
+//! that `s` does not start with a single quote.
+static const char* consume_wide_char_body(const char* s) {
+  if (*s == '\'' || *s == '\0' || *s == '\n') {
+    // Empty char body.
+    return NULL;
+  }
+
+  if (*s == '\\') {
+    ++s;
+    s = consume_escape_sequence(s);
+  } else {
+    ++s;
+  }
+  // Wide char cannot have more than 1 character.
+  return *s == '\'' ? s : NULL;
+}
+
+uint64_t lex_char_constant(const char* s) {
+  const char* start = s;
+  if (is_char_prefix(s[0]) && s[1] == '\'') {
+    s += 2;
+    // Consume wide char. Only 1 single character is allowed.
+    s = consume_wide_char_body(s);
+    // If `s` is NULL, we return NULL. Otherwise we skip the terminating single
+    // quote "'". It is guaranteed to exist due to the check in
+    // `consume_wide_char_body`.
+    return s ? s + 1 - start : 0;
+  }
+
+  if (*s != '\'') {
+    return 0;
+  }
+  ++s;
+  s = consume_char_body(s);
+  if (!s) {
+    return 0;
+  }
+  // Skip the terminating single quote "'". It is guaranteed to exist due to the
+  // check in `consume_char_body`.
+  ++s;
+  return s - start;
 }
 
 typedef enum token_type {

@@ -19,12 +19,23 @@ bool is_keyword(const char* s, size_t len);
 
 //! Returns the length of the numerical constant (integer and float) starting at
 //! the character pointed to by `s`. Returns 0 if it is not a constant.
-//! Character constants are not supported yet.
 uint64_t lex_numeric_constant(const char* s);
 
 //! Returns the length of the punctuator starting at the character pointed to by
 //! `s`. Returns 0 if it is not a punctuator.
 //! Digraphs and trigrpans are not supported.
 uint64_t lex_punctuator(const char* s);
+
+//! Returns the length of the character constant starting at the character
+//! pointed to by `s`. Returns 0 if it is not a constant.
+//!
+//! Some notes on form of character literal:
+//! If preceded by 'L, 'u' or 'U', it is a wide char and can only have 1
+//! character.
+//! For non-wide char, multiple characters like like '1234' 'abcd' 'asdf\x214'
+//! are supported. They are translated into integer byte by byte.
+//! Unsupported escape sequences will get translated into the character after
+//! the slash, so given '\p' '\o', they are translated into 'p', 'o'.
+uint64_t lex_char_constant(const char* s);
 
 #endif  // SKIBICC_LEXER_H
