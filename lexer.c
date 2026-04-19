@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "errors.h"
 #include "hashmap.h"
 
 char* read_file(char* path) {
@@ -299,52 +300,85 @@ uint64_t lex_punctuator(const char* s) {
   return 0;
 }
 
-// Returns true if `c` is a character literal prefix. Otherwise returns false.
+//! Returns true if `c` is a character literal prefix. Otherwise returns false.
 static bool is_char_prefix(char c) { return c == 'L' || tolower(c) == 'u'; }
 
-// Returns true if `c` is a valid escape character. Otherwise returns false.
+// Given a character literal prefix, returns its allowed maximum number of hex
+// digits.
+static size_t get_char_max_hex_len(char c) {
+  switch (c) {
+    case 'u':
+      return 4;
+    case 'U':
+      return 8;
+    case 'L':
+      return 8;
+    default:
+      error(
+          "get_char_max_hex_len(): Unexpected char prefix: %c. You should "
+          "never see this error message!\n",
+          c);
+      break;
+  }
+  // Unreachable here.
+  return 0;
+}
+
+//! Returns true if `c` is a valid escape character. Otherwise returns false.
 static bool is_escape_char(char c) {
   return c == '\'' || c == '\"' || c == '?' || c == '\\' || c == 'a' ||
-         c == 'b' || c == 'f' || c == 'n' || c == 'r' || c == 't' || c == 'v';
+         c == 'b' || c == 'e' || c == 'f' || c == 'n' || c == 'r' || c == 't' ||
+         c == 'v';
+}
+
+//! If `s` matches a hex escape sequence (characters after the "\x" prefix),
+//! returns `s` after skipping the sequence. Returns NULL if `s` is an invalid
+//! hex escape sequence. A hex escape sequence is invalid if it is empty, or
+//! have more hex digits than `max_len`.
+static const char* consume_hex_escape_sequence(const char* s, size_t max_len) {
+  size_t len = 0;
+  while (is_hex_digit(*s)) {
+    ++s;
+    ++len;
+    if (len > max_len) {
+      return NULL;
+    }
+  }
+  // No hex digits is an error.
+  return len == 0 ? NULL : s;
 }
 
 //! If `s` matches an escape sequence (characters after the slash '\'), returns
-//! `s` after skipping the sequence. Returns `NULL` if `s` contains an invalid
-//! hex escape sequence. It is assumed that `s` does not start with the slash
-//! '\'. It is guaranteed that the return result is either `NULL` or `s`
-//! advanced by at least 1 character.
+//! `s` after skipping the sequence. Returns `NULL` if `s` contains an hex
+//! escape sequence longer than `max_hex_len`. It is assumed that `s` does not
+//! start with the slash '\'. It is guaranteed that the return result is either
+//! `NULL` or `s` advanced by at least 1 character.
 //!
 //! Some details on escape sequences:
 //! '\t', '\n', etc are legitimate escape sequences. We skip 1 character. We
 //! return `s` + 1.
 //! '\0', '\123', etc are legitimate octal escape sequences. We skip all digits.
-//! Sequences like '\v', '\o', '\wyz', ... does not contain supported escape
+//! Sequences like '\y', '\o', '\z', ... does not contain supported escape
 //! characters, but we still treat them as if they are escape characters. We
 //! skip 1 character and return `s` + 1.
-//! Sequences like '\1234', '\0000', '\129', '\9',... are not considered as
-//! octal escape sequence, we treat them like non-supported escape character and
-//! return `s` + 1.
-//! Sequences like '\x', '\xabc', '\xyz' are invalid hex escape sequences (they
-//! must contain at least 1 and at most 2 hex digits after 'x'), we return
-//! `NULL`.
-static const char* consume_escape_sequence(const char* s) {
+//! Sequences like '\1234', '\0000', '\129',... have a prefix that is valid
+//! octal escape sequence. We will skip that sequence, and the remaining digits
+//! or characters will be treated as normal characters.
+//! If `max_hex_len` is set 2, sequences like '\x', '\xabc' are invalid hex
+//! escape sequences (they must contain at least 1 and at most 2 hex digits
+//! after 'x'), we return `NULL`.
+//! Sequences like '\xzz', '\xy' contains non-hex characters, we treat this as
+//! seeing a '\x', which is an unsupported escape sequence, so we return `s`
+//! + 1. The remaining characters are treated as normal characters.
+static const char* consume_escape_sequence(const char* s, size_t max_hex_len) {
   if (is_escape_char(*s)) {
     ++s;
     return s;
   }
   if (*s == 'x') {
     ++s;
-    size_t len = 0;
-    while (is_hex_digit(*s)) {
-      ++s;
-      ++len;
-      if (len > 2) {
-        // At most 2 hex digits are allowed.
-        return NULL;
-      }
-    }
-    // No hex digits is an error.
-    return len == 0 ? NULL : s;
+    // At most 2 hex digits are allowed.
+    return consume_hex_escape_sequence(s, max_hex_len);
   }
   if (!is_oct_digit(*s)) {
     // TODO: this would be a good place to issue a warning about unknown escape
@@ -358,7 +392,7 @@ static const char* consume_escape_sequence(const char* s) {
     ++s;
     ++len;
     if (len > 3) {
-      // Not an octal escape sequence if we have no or >3 octal digits.
+      // Not an octal escape sequence if we have >3 octal digits.
       // TODO: Remember if we reach here, this is also a case of "weird" escape
       // character. So given something like '\1234', we should translate it into
       // '1234'.
@@ -368,26 +402,23 @@ static const char* consume_escape_sequence(const char* s) {
   return s;
 }
 
-//! If `s` matches the "body" of a character literal, that is, the content
-//! between the single quotes ("'"), returns `s` after skipping the body (note
-//! that it does NOT skip the terminating single quote). Returns `NULL` if `s`
-//! contains no character body, or if `s` does not have a terminating single
-//! quote character, or if `s` contains an invalid hex escape sequence. It is
-//! assumed that `s` does not start with a single quote.
-static const char* consume_char_body(const char* s) {
-  if (*s == '\'') {
-    // Empty char body.
-    return NULL;
-  }
-  // Consume the rest of the characters.
+//! If `s` matches the "body" of a character or string literal, that is, the
+//! content between the `quote`s, returns `s` after skipping the body
+//! (note that it does NOT skip the terminating `quote`). Returns `NULL`
+//! if `s` does not have a terminating `quote` character, or if `s`
+//! contains a hex escape sequence with more than `max_hex_len` hex digits. It
+//! is assumed that `s` does not start with a `quote` character and that `s` is
+//! non-empty.
+static const char* consume_quoted_body(const char* s, char quote,
+                                       size_t max_hex_len) {
   while (*s != '\0' && *s != '\n') {
-    if (*s == '\'') {
-      // End of char literal.
+    if (*s == quote) {
+      // End of string/char literal.
       return s;
     }
     if (*s == '\\') {
       ++s;
-      s = consume_escape_sequence(s);
+      s = consume_escape_sequence(s, max_hex_len);
       if (!s) {
         return NULL;
       }
@@ -395,7 +426,7 @@ static const char* consume_char_body(const char* s) {
     }
     ++s;
   }
-  // Unterminated char literal.
+  // Unterminated string/char literal.
   return NULL;
 }
 
@@ -403,9 +434,10 @@ static const char* consume_char_body(const char* s) {
 //! between the single quotes ("'"), returns `s` after skipping the body (note
 //! that it does NOT skip the terminating single quote). Returns `NULL` if `s`
 //! contains no character body, or if `s` does not have a terminating single
-//! quote character, or if `s` contains more than 1 character. It is assumed
-//! that `s` does not start with a single quote.
-static const char* consume_wide_char_body(const char* s) {
+//! quote character, or if `s` contains more than 1 character, or if `s`
+//! contains a hex escape sequence that is longer than `max_hex_len`. It is
+//! assumed that `s` does not start with a single quote.
+static const char* consume_wide_char_body(const char* s, size_t max_hex_len) {
   if (*s == '\'' || *s == '\0' || *s == '\n') {
     // Empty char body.
     return NULL;
@@ -413,7 +445,7 @@ static const char* consume_wide_char_body(const char* s) {
 
   if (*s == '\\') {
     ++s;
-    s = consume_escape_sequence(s);
+    s = consume_escape_sequence(s, max_hex_len);
   } else {
     ++s;
   }
@@ -424,9 +456,11 @@ static const char* consume_wide_char_body(const char* s) {
 uint64_t lex_char_constant(const char* s) {
   const char* start = s;
   if (is_char_prefix(s[0]) && s[1] == '\'') {
+    // Prefix u: max 4 hex digits. Prefix U or L: max 8 hex digits.
+    size_t max_hex_len = get_char_max_hex_len(s[0]);
     s += 2;
     // Consume wide char. Only 1 single character is allowed.
-    s = consume_wide_char_body(s);
+    s = consume_wide_char_body(s, max_hex_len);
     // If `s` is NULL, we return NULL. Otherwise we skip the terminating single
     // quote "'". It is guaranteed to exist due to the check in
     // `consume_wide_char_body`.
@@ -437,12 +471,32 @@ uint64_t lex_char_constant(const char* s) {
     return 0;
   }
   ++s;
-  s = consume_char_body(s);
+  if (*s == '\'') {
+    // Empty char.
+    return 0;
+  }
+  // At most 2 hex digits allowed for a char.
+  s = consume_quoted_body(s, /*quote=*/'\'', /*max_hex_len=*/2);
   if (!s) {
     return 0;
   }
   // Skip the terminating single quote "'". It is guaranteed to exist due to the
   // check in `consume_char_body`.
+  ++s;
+  return s - start;
+}
+
+uint64_t lex_string_literal(const char* s) {
+  // TODO: handle prefixes.
+  const char* start = s;
+  if (*s != '\"') {
+    return 0;
+  }
+  ++s;
+  s = consume_quoted_body(s, /*quote=*/'\"', /*max_hex_len=*/2);
+  if (!s) {
+    return 0;
+  }
   ++s;
   return s - start;
 }

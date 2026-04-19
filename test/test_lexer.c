@@ -326,6 +326,21 @@ void test_lex_punctuator(void) {
   TEST_ASSERT_EQUAL(0, lex_punctuator("x;(12+34)"));
 }
 
+void test_char_literal(void) {
+  TEST_ASSERT_EQUAL(3, lex_char_constant("'a'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\a'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\b'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\e'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\f'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\n'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\t'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\v'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\\\'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\\''"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\\"'"));
+  TEST_ASSERT_EQUAL(4, lex_char_constant("'\\\?'"));
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_lex_identifier);
@@ -336,5 +351,6 @@ int main(void) {
   RUN_TEST(test_lex_hex_float);
   RUN_TEST(test_lex_keyword);
   RUN_TEST(test_lex_punctuator);
+  RUN_TEST(test_char_literal);
   return UNITY_END();
 }
