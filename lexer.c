@@ -487,13 +487,23 @@ uint64_t lex_char_constant(const char* s) {
 }
 
 uint64_t lex_string_literal(const char* s) {
-  // TODO: handle prefixes.
   const char* start = s;
+  size_t max_hex_len = 2;
+  // String prefixes: u8, u, U, L.
+  if (s[0] == 'U' || s[0] == 'L') {
+    max_hex_len = 8;
+    ++s;
+  } else if (strncmp(s, "u8", 2) == 0) {
+    s += 2;
+  } else if (s[0] == 'u') {
+    ++s;
+  }
+
   if (*s != '\"') {
     return 0;
   }
   ++s;
-  s = consume_quoted_body(s, /*quote=*/'\"', /*max_hex_len=*/2);
+  s = consume_quoted_body(s, /*quote=*/'\"', max_hex_len);
   if (!s) {
     return 0;
   }

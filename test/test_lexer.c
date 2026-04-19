@@ -327,18 +327,37 @@ void test_lex_punctuator(void) {
 }
 
 void test_char_literal(void) {
+  // 'a'
   TEST_ASSERT_EQUAL(3, lex_char_constant("'a'"));
+  // '\a'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\a'"));
+  // '\b'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\b'"));
+  // '\e'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\e'"));
+  // '\f'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\f'"));
+  // '\n'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\n'"));
+  // '\t'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\t'"));
+  // '\v'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\v'"));
+  // '\\'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\\\'"));
+  // '\''
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\\''"));
+  // '\"'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\\"'"));
+  // '\?'
   TEST_ASSERT_EQUAL(4, lex_char_constant("'\\\?'"));
+}
+
+void test_string_literal(void) {
+  // u"Hello, world!"
+  TEST_ASSERT_EQUAL(16, lex_string_literal("u\"Hello, world!\""));
+  // u8"\xaaHi"
+  TEST_ASSERT_EQUAL(10, lex_string_literal("u8\"\\xaaHi\""));
 }
 
 int main(void) {
@@ -352,5 +371,6 @@ int main(void) {
   RUN_TEST(test_lex_keyword);
   RUN_TEST(test_lex_punctuator);
   RUN_TEST(test_char_literal);
+  RUN_TEST(test_string_literal);
   return UNITY_END();
 }

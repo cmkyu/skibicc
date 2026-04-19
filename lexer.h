@@ -38,4 +38,6 @@ uint64_t lex_punctuator(const char* s);
 //! the slash, so for example given '\o', it is translated into 'o'.
 uint64_t lex_char_constant(const char* s);
 
+uint64_t lex_string_literal(const char* s);
+
 #endif  // SKIBICC_LEXER_H
