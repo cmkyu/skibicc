@@ -122,10 +122,11 @@ static const size_t INT_SUFFIXES_SIZE =
 //! If `s` matches any integer suffixes, returns `s` after skipping the suffix.
 //! If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
 //! returns `NULL`.
-//! Example:
-//! Valid suffix: 1234ull;
-//! No suffix at all: 1234;
-//! Invalid suffix: 1234ulla (integer must end at word boundary, i.e.,
+//!
+//! Examples:
+//! - Valid suffix: 1234ull;
+//! - No suffix at all: 1234;
+//! - Invalid suffix: 1234ulla (integer must end at word boundary, i.e.,
 //! must be followed by a character for whom is_word_char() is false)
 static const char* consume_int_suffix(const char* s) {
   char c = tolower(*s);
@@ -173,10 +174,11 @@ static const char* consume_exponent(const char* s) {
 //! If `s` matches any float suffixes, returns `s` after skipping the suffix.
 //! If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
 //! returns `NULL`.
-//! Example:
-//! Valid suffix: 12.34f;
-//! No suffix at all: 12.34;
-//! Invalid suffix: 12.34fa (float must end at word boundary, i.e., must be
+//!
+//! Examples:
+//! - Valid suffix: 12.34f;
+//! - No suffix at all: 12.34;
+//! - Invalid suffix: 12.34fa (float must end at word boundary, i.e., must be
 //! followed by a character for whom is_word_char() is false)
 static const char* consume_float_suffix(const char* s) {
   char c = tolower(*s);
@@ -219,8 +221,8 @@ static const char* consume_hex(const char* s) {
   return s ? consume_float_suffix(s) : s;
 }
 
-//! Returns 1 if `c` matches [0-8], otherwise returns 0.
-static int is_oct_digit(int c) { return c >= '0' && c <= '8'; }
+//! Returns 1 if `c` matches [0-7], otherwise returns 0.
+static int is_oct_digit(int c) { return c >= '0' && c <= '7'; }
 
 //! Returns true if `c` is the character 'e' or 'E'. Otherwise returns false.
 static bool is_dec_exp_char(char c) { return tolower(c) == 'e'; }
@@ -367,8 +369,8 @@ static const char* consume_hex_escape_sequence(const char* s, size_t max_len) {
 //! octal escape sequence. We will skip that sequence, and the remaining digits
 //! or characters will be treated as normal characters.
 //!
-//! - If `max_hex_len` is set 2, sequences like '\x', '\xabc' are invalid hex
-//! escape sequences (they must contain at least 1 and at most 2 hex digits
+//! - Say if `max_hex_len` is set 2, sequences like '\x', '\xabc' are invalid
+//! hex escape sequences (they must contain at least 1 and at most 2 hex digits
 //! after 'x'), we return `NULL`.
 //!
 //! - Sequences like '\xzz', '\xy' contains non-hex characters, we treat this as
@@ -390,18 +392,11 @@ static const char* consume_escape_sequence(const char* s, size_t max_hex_len) {
     // like '\p', '\9', we should translate it into 'p' and '9'.
     return s + 1;
   }
-  const char* start = s;
   size_t len = 0;
-  while (is_oct_digit(*s)) {
+  // Octal escape sequence has at most 3 characters.
+  while (is_oct_digit(*s) && len <= 3) {
     ++s;
     ++len;
-    if (len > 3) {
-      // Not an octal escape sequence if we have >3 octal digits.
-      // TODO: Remember if we reach here, this is also a case of "weird" escape
-      // character. So given something like '\1234', we should translate it into
-      // '1234'.
-      return start + 1;
-    }
   }
   return s;
 }
@@ -479,13 +474,18 @@ uint64_t lex_char_constant(const char* s) {
     // Empty char.
     return 0;
   }
+  // TODO: Octal escape sequence has allowed range too, depending on the prefix.
+  // (u: \377, U/L: \777) This is a really dumb way to check range (which is not
+  // really the lexer's job tbh). We should just convert them into numerical
+  // values first and then check the range.
+  //
   // At most 2 hex digits allowed for a char.
   s = consume_quoted_body(s, /*quote=*/'\'', /*max_hex_len=*/2);
   if (!s) {
     return 0;
   }
   // Skip the terminating single quote "'". It is guaranteed to exist due to the
-  // check in `consume_char_body`.
+  // check in `consume_quoted_body`.
   ++s;
   return s - start;
 }
@@ -494,6 +494,8 @@ uint64_t lex_string_literal(const char* s) {
   const char* start = s;
   size_t max_hex_len = 2;
   // String prefixes: u8, u, U, L.
+  // u8, u: max 2 hex digits
+  // U, L: max 8 hex digits
   if (s[0] == 'U' || s[0] == 'L') {
     max_hex_len = 8;
     ++s;
@@ -511,6 +513,8 @@ uint64_t lex_string_literal(const char* s) {
   if (!s) {
     return 0;
   }
+  // Skip the terminating double quote. It is guaranteed to exist due to the
+  // check in `consume_quoted_body`.
   ++s;
   return s - start;
 }

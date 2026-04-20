@@ -83,7 +83,7 @@ void test_lex_octal_integer(void) {
   TEST_ASSERT_EQUAL(1, lex_numeric_constant("0"));
   TEST_ASSERT_EQUAL(4, lex_numeric_constant("0000"));
   TEST_ASSERT_EQUAL(4, lex_numeric_constant("0234"));
-  TEST_ASSERT_EQUAL(16, lex_numeric_constant("0028374651237567"));
+  TEST_ASSERT_EQUAL(16, lex_numeric_constant("0027374651237567"));
   TEST_ASSERT_EQUAL(4, lex_numeric_constant("0234;"));
   TEST_ASSERT_EQUAL(4, lex_numeric_constant("0234)"));
   TEST_ASSERT_EQUAL(4, lex_numeric_constant("0234/123"));
@@ -109,7 +109,7 @@ void test_lex_octal_integer(void) {
 
   TEST_ASSERT_EQUAL(5, lex_numeric_constant("0674u"));
   TEST_ASSERT_EQUAL(7, lex_numeric_constant("0137Ull"));
-  TEST_ASSERT_EQUAL(7, lex_numeric_constant("06748LL"));
+  TEST_ASSERT_EQUAL(7, lex_numeric_constant("06747LL"));
   TEST_ASSERT_EQUAL(6, lex_numeric_constant("0237ul"));
   TEST_ASSERT_EQUAL(7, lex_numeric_constant("0137LLu"));
   TEST_ASSERT_EQUAL(6, lex_numeric_constant("0237Lu"));

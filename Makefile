@@ -76,6 +76,9 @@ clean:
 	rm -f $(OBJT) $(DEPT) $(UNITY)unity.o
 	rm -f $(TEST)*.$(EXT) $(TEST)*.txt
 
+doc:
+	doxygen Doxyfile
+
 -include $(DEP)
 -include $(DEPT)
 
