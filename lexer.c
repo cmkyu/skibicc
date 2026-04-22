@@ -1,13 +1,18 @@
 //!@file
 //!@brief Source file for the lexer.
 
+#include "lexer.h"
+
+#include <assert.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "array.h"
 #include "errors.h"
 #include "hashmap.h"
 
@@ -48,11 +53,9 @@ char* read_file(char* path) {
 //! Returns true if `c` matches [a-zA-Z_]. Otherwise returns false.
 static bool is_word_char(char c) { return isalnum(c) || c == '_'; }
 
-uint64_t lex_identifier(const char* s) {
+bool lex_identifier(const char* s, token* tok) {
   if (!isalpha(*s) && *s != '_') {
-    // TODO: these checks should really be moved to the lexer main loop. Then,
-    // if the lex_ methods returns 0, we can emit a nice error message.
-    return 0;
+    return false;
   }
 
   const char* start = s;
@@ -64,7 +67,10 @@ uint64_t lex_identifier(const char* s) {
     }
     ++s;
   }
-  return s - start;
+  tok->token_type = TK_IDENT;
+  tok->loc = start;
+  tok->size = s - start;
+  return true;
 }
 
 //! C keywords.
@@ -188,9 +194,21 @@ static const char* consume_float_suffix(const char* s) {
   return is_word_char(*s) ? NULL : s;
 }
 
+//! Assigns the value of `exp` to `x`. If `exp` evaluates to NULL, returns NULL.
+#define ASSIGN_OR_RETURN(x, exp) \
+  do {                           \
+    x = exp;                     \
+    if (!x) {                    \
+      return NULL;               \
+    }                            \
+  } while (0)
+
 //! If `s` matches a hex integer or float, returns `s` after skipping the hex
-//! number. Returns `NULL` if `s` is not a valid hex number.
-static const char* consume_hex(const char* s) {
+//! number. Returns `NULL` if `s` is not a valid hex number. It is assumed that
+//! `s` starts with a valid hex prefix "0x" or "0X".
+static const char* consume_hex(const char* s, token* tok) {
+  const char* start = s;
+  s += 2;
   if (!is_hex_digit(*s) && *s != '.') {
     return NULL;
   }
@@ -203,7 +221,11 @@ static const char* consume_hex(const char* s) {
   }
   if (*s != '.' && !is_hex_exp_char(*s)) {
     // Integer
-    return consume_int_suffix(s);
+    ASSIGN_OR_RETURN(s, consume_int_suffix(s));
+    tok->token_type = TK_ICONST;
+    // TODO: check for overflow by comparing str_end with s before
+    // consume_int_suffix.
+    tok->constant.int_val = strtoull(start, NULL, /*__base=*/16);
   }
   // Float
   if (*s == '.') {
@@ -217,8 +239,11 @@ static const char* consume_hex(const char* s) {
     return NULL;
   }
   ++s;
-  s = consume_exponent(s);
-  return s ? consume_float_suffix(s) : s;
+  ASSIGN_OR_RETURN(s, consume_exponent(s));
+  ASSIGN_OR_RETURN(s, consume_float_suffix(s));
+  tok->token_type = TK_FCONST;
+  tok->constant.float_val = strtold(start, NULL);
+  return s;
 }
 
 //! Returns 1 if `c` matches [0-7], otherwise returns 0.
@@ -230,7 +255,7 @@ static bool is_dec_exp_char(char c) { return tolower(c) == 'e'; }
 //! If `s` matches a decimal integer, a decimal float or an octal integer,
 //! returns `s` after skipping the number. Returns `NULL` if `s` is not a valid
 //! number.
-static const char* consume_dec_or_oct(const char* s) {
+static const char* consume_dec_or_oct(const char* s, token* tok) {
   if (!isdigit(*s) && *s != '.') {
     return NULL;
   }
@@ -239,6 +264,7 @@ static const char* consume_dec_or_oct(const char* s) {
   }
 
   const char* start = s;
+  bool is_oct = *start == '0';
   bool has_invalid_oct = false;
   while (isdigit(*s)) {
     has_invalid_oct |= !is_oct_digit(*s);
@@ -246,10 +272,13 @@ static const char* consume_dec_or_oct(const char* s) {
   }
   if (*s != '.' && !is_dec_exp_char(*s)) {
     // Decimal or octal integer
-    if (*start == '0' && has_invalid_oct) {
+    if (is_oct && has_invalid_oct) {
       return NULL;
     }
-    return consume_int_suffix(s);
+    ASSIGN_OR_RETURN(s, consume_int_suffix(s));
+    tok->token_type = TK_ICONST;
+    tok->constant.int_val = strtoull(start, NULL, /*__base=*/is_oct ? 8 : 10);
+    return s;
   }
   // Float
   if (*s == '.') {
@@ -260,19 +289,28 @@ static const char* consume_dec_or_oct(const char* s) {
   }
   if (is_dec_exp_char(*s)) {
     ++s;
-    s = consume_exponent(s);
+    ASSIGN_OR_RETURN(s, consume_exponent(s));
   }
-  return s ? consume_float_suffix(s) : s;
+  ASSIGN_OR_RETURN(s, consume_float_suffix(s));
+  tok->token_type = TK_FCONST;
+  tok->constant.float_val = strtold(start, NULL);
+  return s;
 }
 
-uint64_t lex_numeric_constant(const char* s) {
+bool lex_numeric_constant(const char* s, token* tok) {
   const char* start = s;
   if (s[0] == '0' && tolower(s[1]) == 'x') {
-    s = consume_hex(s + 2);
+    s = consume_hex(s, tok);
   } else {
-    s = consume_dec_or_oct(s);
+    s = consume_dec_or_oct(s, tok);
   }
-  return s ? s - start : 0;
+  if (!s) {
+    return false;
+  }
+
+  tok->loc = start;
+  tok->size = s - start;
+  return true;
 }
 
 //! Order matters here. For fast lookup we want the most common punctuators to
@@ -288,43 +326,25 @@ static char* PUNCTUATORS[] = {
 //! Size of `PUNCTUATORS`.
 const size_t PUNCTUATORS_SIZE = sizeof(PUNCTUATORS) / sizeof(PUNCTUATORS[0]);
 
-uint64_t lex_punctuator(const char* s) {
+bool lex_punctuator(const char* s, token* tok) {
   if (!ispunct(*s)) {
-    return 0;
+    return false;
   }
   for (size_t i = 0; i < PUNCTUATORS_SIZE; ++i) {
     const char* punct = PUNCTUATORS[i];
     size_t len = strlen(punct);
     if (strncmp(s, punct, len) == 0) {
+      tok->token_type = TK_PUNCT;
+      tok->loc = s;
+      tok->size = len;
       return len;
     }
   }
-  return 0;
+  return false;
 }
 
 //! Returns true if `c` is a character literal prefix. Otherwise returns false.
 static bool is_char_prefix(char c) { return c == 'L' || tolower(c) == 'u'; }
-
-//! Given a character literal prefix, returns its allowed maximum number of hex
-//! digits.
-static size_t get_char_max_hex_len(char c) {
-  switch (c) {
-    case 'u':
-      return 4;
-    case 'U':
-      return 8;
-    case 'L':
-      return 8;
-    default:
-      error(
-          "get_char_max_hex_len(): Unexpected char prefix: %c. You should "
-          "never see this error message!\n",
-          c);
-      break;
-  }
-  // Unreachable here.
-  return 0;
-}
 
 //! Returns true if `c` is a valid escape character. Otherwise returns false.
 static bool is_escape_char(char c) {
@@ -334,20 +354,21 @@ static bool is_escape_char(char c) {
 }
 
 //! If `s` matches a hex escape sequence (characters after the "\x" prefix),
-//! returns `s` after skipping the sequence. Returns NULL if `s` is an invalid
-//! hex escape sequence. A hex escape sequence is invalid if it is empty, or
-//! have more hex digits than `max_len`.
-static const char* consume_hex_escape_sequence(const char* s, size_t max_len) {
+//! returns `s` after skipping the sequence. Exits with an error if `s` is an
+//! invalid hex escape sequence. A hex escape sequence is invalid if it is
+//! empty.
+static const char* consume_hex_escape_sequence(const char* s) {
   size_t len = 0;
   while (is_hex_digit(*s)) {
     ++s;
     ++len;
-    if (len > max_len) {
-      return NULL;
-    }
   }
-  // No hex digits is an error.
-  return len == 0 ? NULL : s;
+  if (len == 0) {
+    // No hex digits is an error.
+    // TODO: Make this error message nicer with file name, line:col number, etc.
+    error("error: \\x used with no following hex digits.");
+  }
+  return s;
 }
 
 //! If `s` matches an escape sequence (characters after the slash '\'), returns
@@ -369,22 +390,16 @@ static const char* consume_hex_escape_sequence(const char* s, size_t max_len) {
 //! octal escape sequence. We will skip that sequence, and the remaining digits
 //! or characters will be treated as normal characters.
 //!
-//! - Say if `max_hex_len` is set 2, sequences like '\x', '\xabc' are invalid
-//! hex escape sequences (they must contain at least 1 and at most 2 hex digits
-//! after 'x'), we return `NULL`.
-//!
-//! - Sequences like '\xzz', '\xy' contains non-hex characters, we treat this as
-//! seeing a '\x', which is an unsupported escape sequence, so we return
-//! `s` + 1. The remaining characters are treated as normal characters.
-static const char* consume_escape_sequence(const char* s, size_t max_hex_len) {
+//! - Sequences like '\x', '\xabc' are invalid hex escape sequences, we return
+//! `NULL`.
+static const char* consume_escape_sequence(const char* s) {
   if (is_escape_char(*s)) {
     ++s;
     return s;
   }
   if (*s == 'x') {
     ++s;
-    // At most 2 hex digits are allowed.
-    return consume_hex_escape_sequence(s, max_hex_len);
+    return consume_hex_escape_sequence(s);
   }
   if (!is_oct_digit(*s)) {
     // TODO: this would be a good place to issue a warning about unknown escape
@@ -404,12 +419,9 @@ static const char* consume_escape_sequence(const char* s, size_t max_hex_len) {
 //! If `s` matches the "body" of a character or string literal, that is, the
 //! content between the `quote`s, returns `s` after skipping the body
 //! (note that it does NOT skip the terminating `quote`). Returns `NULL`
-//! if `s` does not have a terminating `quote` character, or if `s`
-//! contains a hex escape sequence with more than `max_hex_len` hex digits. It
-//! is assumed that `s` does not start with a `quote` character and that `s` is
-//! non-empty.
-static const char* consume_quoted_body(const char* s, char quote,
-                                       size_t max_hex_len) {
+//! if `s` does not have a terminating `quote` character. It is assumed that `s`
+//! does not start with a `quote` character and that `s` is non-empty.
+static const char* consume_quoted_body(const char* s, char quote) {
   while (*s != '\0' && *s != '\n') {
     if (*s == quote) {
       // End of string/char literal.
@@ -417,10 +429,7 @@ static const char* consume_quoted_body(const char* s, char quote,
     }
     if (*s == '\\') {
       ++s;
-      s = consume_escape_sequence(s, max_hex_len);
-      if (!s) {
-        return NULL;
-      }
+      ASSIGN_OR_RETURN(s, consume_escape_sequence(s));
       continue;
     }
     ++s;
@@ -433,10 +442,9 @@ static const char* consume_quoted_body(const char* s, char quote,
 //! between the single quotes ("'"), returns `s` after skipping the body (note
 //! that it does NOT skip the terminating single quote). Returns `NULL` if `s`
 //! contains no character body, or if `s` does not have a terminating single
-//! quote character, or if `s` contains more than 1 character, or if `s`
-//! contains a hex escape sequence that is longer than `max_hex_len`. It is
-//! assumed that `s` does not start with a single quote.
-static const char* consume_wide_char_body(const char* s, size_t max_hex_len) {
+//! quote character, or if `s` contains more than 1 character. It is assumed
+//! that `s` does not start with a single quote.
+static const char* consume_wide_char_body(const char* s) {
   if (*s == '\'' || *s == '\0' || *s == '\n') {
     // Empty char body.
     return NULL;
@@ -444,7 +452,7 @@ static const char* consume_wide_char_body(const char* s, size_t max_hex_len) {
 
   if (*s == '\\') {
     ++s;
-    s = consume_escape_sequence(s, max_hex_len);
+    ASSIGN_OR_RETURN(s, consume_escape_sequence(s));
   } else {
     ++s;
   }
@@ -452,14 +460,13 @@ static const char* consume_wide_char_body(const char* s, size_t max_hex_len) {
   return *s == '\'' ? s : NULL;
 }
 
-uint64_t lex_char_constant(const char* s) {
+uint64_t lex_char_constant(const char* s, token* tok) {
   const char* start = s;
   if (is_char_prefix(s[0]) && s[1] == '\'') {
     // Prefix u: max 4 hex digits. Prefix U or L: max 8 hex digits.
-    size_t max_hex_len = get_char_max_hex_len(s[0]);
     s += 2;
     // Consume wide char. Only 1 single character is allowed.
-    s = consume_wide_char_body(s, max_hex_len);
+    s = consume_wide_char_body(s);
     // If `s` is NULL, we return NULL. Otherwise we skip the terminating single
     // quote "'". It is guaranteed to exist due to the check in
     // `consume_wide_char_body`.
@@ -475,12 +482,9 @@ uint64_t lex_char_constant(const char* s) {
     return 0;
   }
   // TODO: Octal escape sequence has allowed range too, depending on the prefix.
-  // (u: \377, U/L: \777) This is a really dumb way to check range (which is not
-  // really the lexer's job tbh). We should just convert them into numerical
-  // values first and then check the range.
-  //
-  // At most 2 hex digits allowed for a char.
-  s = consume_quoted_body(s, /*quote=*/'\'', /*max_hex_len=*/2);
+  // (u: \377, U/L: \777). We should just convert them into numerical values
+  // first and then check the range.
+  s = consume_quoted_body(s, /*quote=*/'\'');
   if (!s) {
     return 0;
   }
@@ -492,12 +496,10 @@ uint64_t lex_char_constant(const char* s) {
 
 uint64_t lex_string_literal(const char* s) {
   const char* start = s;
-  size_t max_hex_len = 2;
   // String prefixes: u8, u, U, L.
   // u8, u: max 2 hex digits
   // U, L: max 8 hex digits
   if (s[0] == 'U' || s[0] == 'L') {
-    max_hex_len = 8;
     ++s;
   } else if (strncmp(s, "u8", 2) == 0) {
     s += 2;
@@ -509,7 +511,7 @@ uint64_t lex_string_literal(const char* s) {
     return 0;
   }
   ++s;
-  s = consume_quoted_body(s, /*quote=*/'\"', max_hex_len);
+  s = consume_quoted_body(s, /*quote=*/'\"');
   if (!s) {
     return 0;
   }
@@ -519,26 +521,47 @@ uint64_t lex_string_literal(const char* s) {
   return s - start;
 }
 
-typedef enum token_type {
-  TK_KW,
-  TK_IDENT,
-  TK_CONST,
-  TK_STRLIT,
-  TK_PUNCT,
-} token_type;
+array lex(char* s, size_t size) {
+  array tokens;
+  array_init(&tokens, sizeof(token));
 
-typedef enum constant_type {
-  CT_INT,
-  CT_FLOAT,
-} constant_type;
+  size_t line_num = 0;
+  size_t col_num = 0;
+  while (*s) {
+    if (isspace(*s)) {
+      ++col_num;
+      continue;
+    }
+    if (*s == '\n') {
+      ++line_num;
+      col_num = 0;
+      continue;
+    }
 
-struct token {
-  token_type token_type;
-  constant_type constant_type;
-  union constant {
-    int64_t int_val;
-    double float_val;
-  } constant;
-  char* loc;
-  size_t size;
-};
+    token* tok = array_push_back(&tokens);
+    memset(tok, 0, sizeof(token));
+    tok->token_type = TK_UNKNOWN;
+    tok->line_num = line_num;
+    tok->col_num = col_num;
+
+    if (lex_identifier(s, tok)) {
+      tok->token_type = is_keyword(s, tok->size) ? TK_KEYWRD : TK_IDENT;
+      col_num += tok->size;
+      continue;
+    }
+
+    if (lex_numeric_constant(s, tok)) {
+      col_num += tok->size;
+      continue;
+    }
+
+    // TODO: literals should go here.
+
+    if (lex_punctuator(s, tok)) {
+      col_num += tok->size;
+      continue;
+    }
+  }
+
+  return tokens;
+}
