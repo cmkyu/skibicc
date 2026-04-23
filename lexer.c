@@ -153,11 +153,6 @@ static const char* consume_int_suffix(const char* s) {
   return is_word_char(*s) ? NULL : s;
 }
 
-//! Returns 1 if `c` matches [a-fA-F0-9], otherwise returns 0.
-static int is_hex_digit(int c) {
-  return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-}
-
 //! Returns true if `c` is the character 'p' or 'P'. Otherwise returns false.
 static bool is_hex_exp_char(char c) { return tolower(c) == 'p'; }
 
@@ -209,14 +204,14 @@ static const char* consume_float_suffix(const char* s) {
 static const char* consume_hex(const char* s, token* tok) {
   const char* start = s;
   s += 2;
-  if (!is_hex_digit(*s) && *s != '.') {
+  if (!isxdigit(*s) && *s != '.') {
     return NULL;
   }
-  if (s[0] == '.' && !is_hex_digit(s[1])) {
+  if (s[0] == '.' && !isxdigit(s[1])) {
     return NULL;
   }
 
-  while (is_hex_digit(*s)) {
+  while (isxdigit(*s)) {
     ++s;
   }
   if (*s != '.' && !is_hex_exp_char(*s)) {
@@ -230,7 +225,7 @@ static const char* consume_hex(const char* s, token* tok) {
   // Float
   if (*s == '.') {
     ++s;
-    while (is_hex_digit(*s)) {
+    while (isxdigit(*s)) {
       ++s;
     }
   }
@@ -343,32 +338,118 @@ bool lex_punctuator(const char* s, token* tok) {
   return false;
 }
 
-//! Returns true if `c` is a character literal prefix. Otherwise returns false.
-static bool is_char_prefix(char c) { return c == 'L' || tolower(c) == 'u'; }
+typedef enum char_width {
+  CW_8 = 1,
+  CW_16 = 2,
+  CW_32 = 4,
+} char_width;
 
-//! Returns true if `c` is a valid escape character. Otherwise returns false.
-static bool is_escape_char(char c) {
-  return c == '\'' || c == '\"' || c == '?' || c == '\\' || c == 'a' ||
-         c == 'b' || c == 'e' || c == 'f' || c == 'n' || c == 'r' || c == 't' ||
-         c == 'v';
+static void copy_char(uint32_t c, void* dst, char_width char_width) {
+  uint8_t char_8 = 0;
+  uint16_t char_16 = 0;
+
+  // Bit-wise operation is endian agnostic, unlike memcpy. But why don't we just
+  // assume little endlianess and make life much easier? Because I hate myself.
+  switch (char_width) {
+    case CW_8:
+      char_8 = c | 0xff;
+      memcpy(dst, &char_8, CW_8);
+      break;
+    case CW_16:
+      char_16 = c | 0xffff;
+      memcpy(dst, &char_16, CW_16);
+      break;
+    case CW_32:
+      memcpy(dst, &c, CW_32);
+      break;
+    default:
+      error("FATAL: Unexpected char_width enum: %d\n", char_width);
+  }
 }
 
 //! If `s` matches a hex escape sequence (characters after the "\x" prefix),
 //! returns `s` after skipping the sequence. Exits with an error if `s` is an
 //! invalid hex escape sequence. A hex escape sequence is invalid if it is
-//! empty.
-static const char* consume_hex_escape_sequence(const char* s) {
+//! empty. `char_width` is the width of characters in`s` in bytes.
+static const char* consume_hex_escape_sequence(const char* s, void* dst,
+                                               char_width char_width) {
+  uint32_t c = 0;
   size_t len = 0;
-  while (is_hex_digit(*s)) {
+  size_t max_len = char_width * 2;
+  while (isxdigit(*s)) {
+    c <<= 4;
+    char digit = tolower(*s);
+    if (isdigit(digit)) {
+      c |= digit - '0';
+    } else {
+      c |= digit - 'a';
+    }
     ++s;
     ++len;
+    if (len > max_len) {
+      error("error: hex escape sequence out of range.");
+    }
   }
   if (len == 0) {
     // No hex digits is an error.
     // TODO: Make this error message nicer with file name, line:col number, etc.
     error("error: \\x used with no following hex digits.");
   }
+  copy_char(c, dst, char_width);
   return s;
+}
+
+static const char* consume_oct_escape_sequence(const char* s, void* dst,
+                                               char_width char_width) {
+  uint32_t c = 0;
+  size_t len = 0;
+  // Octal escape sequence has at most 3 characters.
+  while (is_oct_digit(*s) && len <= 3) {
+    c <<= 3;
+    c |= *s - '0';
+    ++s;
+    ++len;
+  }
+  // 1 byte holds at most an integer value of 255.
+  if (char_width == CW_8 && c > '\377') {
+    error("error: octal escape sequence out of range.");
+  }
+  copy_char(c, dst, char_width);
+  return s;
+}
+
+static char get_escape_char(char c) {
+  switch (c) {
+    case '\'':
+      return '\'';
+    case '\"':
+      return '\"';
+    case '?':
+      return '\?';
+    case '\\':
+      return '\\';
+    case 'a':
+      return '\a';
+    case 'b':
+      return '\b';
+    case 'f':
+      return '\f';
+    case 'n':
+      return '\n';
+    case 'r':
+      return '\r';
+    case 't':
+      return '\t';
+    case 'v':
+      return '\v';
+    case 'e':
+      // Non-standard '\e' character. Supported by GCC and clang.
+      return '\033';
+    default:
+      // TODO: make this warning message nicer.
+      fprintf(stderr, "warning: unknown escape sequence \\%c\n", c);
+      return c;
+  }
 }
 
 //! If `s` matches an escape sequence (characters after the slash '\'), returns
@@ -390,30 +471,19 @@ static const char* consume_hex_escape_sequence(const char* s) {
 //! octal escape sequence. We will skip that sequence, and the remaining digits
 //! or characters will be treated as normal characters.
 //!
-//! - Sequences like '\x', '\xabc' are invalid hex escape sequences, we return
-//! `NULL`.
-static const char* consume_escape_sequence(const char* s) {
-  if (is_escape_char(*s)) {
-    ++s;
-    return s;
-  }
+//! - Sequences like '\x' are invalid hex escape sequences, we return `NULL`.
+static const char* consume_escape_sequence(const char* s, void* dst,
+                                           char_width char_width) {
   if (*s == 'x') {
     ++s;
-    return consume_hex_escape_sequence(s);
+    return consume_hex_escape_sequence(s, dst, char_width);
   }
-  if (!is_oct_digit(*s)) {
-    // TODO: this would be a good place to issue a warning about unknown escape
-    // sequence. This is a case of "weird" escape character. So given something
-    // like '\p', '\9', we should translate it into 'p' and '9'.
-    return s + 1;
+  if (is_oct_digit(*s)) {
+    return consume_oct_escape_sequence(s, dst, char_width);
   }
-  size_t len = 0;
-  // Octal escape sequence has at most 3 characters.
-  while (is_oct_digit(*s) && len <= 3) {
-    ++s;
-    ++len;
-  }
-  return s;
+  uint32_t c = (uint32_t)get_escape_char(*s);
+  copy_char(c, dst, char_width);
+  return s + 1;
 }
 
 //! If `s` matches the "body" of a character or string literal, that is, the
@@ -424,7 +494,7 @@ static const char* consume_escape_sequence(const char* s) {
 static const char* consume_quoted_body(const char* s, char quote) {
   while (*s != '\0' && *s != '\n') {
     if (*s == quote) {
-      // End of string/char literal.
+      // End of string literal.
       return s;
     }
     if (*s == '\\') {
@@ -438,59 +508,104 @@ static const char* consume_quoted_body(const char* s, char quote) {
   return NULL;
 }
 
+//! Returns true if `c` is a character literal prefix. Otherwise returns false.
+static bool is_char_prefix(char c) { return c == 'L' || tolower(c) == 'u'; }
+
 //! If `s` matches the "body" of a wide character literal, that is, the content
 //! between the single quotes ("'"), returns `s` after skipping the body (note
 //! that it does NOT skip the terminating single quote). Returns `NULL` if `s`
 //! contains no character body, or if `s` does not have a terminating single
 //! quote character, or if `s` contains more than 1 character. It is assumed
 //! that `s` does not start with a single quote.
-static const char* consume_wide_char_body(const char* s) {
+static const char* consume_wide_char_body(const char* s, uint32_t* dst) {
+  if (!(is_char_prefix(s[0]) && s[1] == '\'')) {
+    return NULL;
+  }
+
+  // Prefix u: 2 byte character. Prefix U or L: 4 byte character.
+  char prefix = s[0];
+  char_width char_width = CW_16;
+  if (prefix == 'U' || prefix == 'L') {
+    char_width = CW_32;
+  }
+  s += 2;
+
   if (*s == '\'' || *s == '\0' || *s == '\n') {
     // Empty char body.
     return NULL;
   }
 
+  uint16_t char_16 = 0;
+  uint32_t char_32 = 0;
   if (*s == '\\') {
     ++s;
-    ASSIGN_OR_RETURN(s, consume_escape_sequence(s));
+    if (char_width == CW_16) {
+      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &char_16, char_width));
+      *dst = (uint32_t)char_16;
+    } else {  // CW_32
+      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &char_32, char_width));
+      *dst = char_32;
+    }
   } else {
+    // TODO: need a UTF-8 decode method.
+    uint32_t c = (uint32_t)*s;
+    copy_char(c, dst, char_width);
     ++s;
   }
   // Wide char cannot have more than 1 character.
-  return *s == '\'' ? s : NULL;
+  if (*s != '\'') {
+    error("error: %s character literal may not contain multiple characters.",
+          prefix == 'L' ? "wide" : "unicode");
+  }
+  return s;
+}
+
+static const char* consume_char_body(const char* s, uint32_t* dst) {
+  if (*s != '\'') {
+    return NULL;
+  }
+  ++s;
+  if (*s == '\'' || *s == '\0' || *s == '\n') {
+    // Empty char.
+    return NULL;
+  }
+
+  while (*s != '\0' && *s != '\n') {
+    if (*s == '\'') {
+      // End of char literal.
+      return s;
+    }
+    if (*s == '\\') {
+      ++s;
+      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, dst, CW_8));
+      continue;
+    }
+    // TODO: need a UTF-8 decode method.
+    uint32_t c = (uint32_t)*s;
+    copy_char(c, dst, CW_8);
+    ++s;
+  }
+  // Unterminated string/char literal.
+  return NULL;
 }
 
 uint64_t lex_char_constant(const char* s, token* tok) {
+  uint32_t res = 0;
   const char* start = s;
-  if (is_char_prefix(s[0]) && s[1] == '\'') {
-    // Prefix u: max 4 hex digits. Prefix U or L: max 8 hex digits.
-    s += 2;
-    // Consume wide char. Only 1 single character is allowed.
-    s = consume_wide_char_body(s);
-    // If `s` is NULL, we return NULL. Otherwise we skip the terminating single
-    // quote "'". It is guaranteed to exist due to the check in
-    // `consume_wide_char_body`.
-    return s ? s + 1 - start : 0;
+  s = consume_char_body(s, &res);
+  if (s) {
+    s = consume_wide_char_body(s, &res);
   }
-
-  if (*s != '\'') {
-    return 0;
-  }
-  ++s;
-  if (*s == '\'') {
-    // Empty char.
-    return 0;
-  }
-  // TODO: Octal escape sequence has allowed range too, depending on the prefix.
-  // (u: \377, U/L: \777). We should just convert them into numerical values
-  // first and then check the range.
-  s = consume_quoted_body(s, /*quote=*/'\'');
   if (!s) {
-    return 0;
+    return NULL;
   }
-  // Skip the terminating single quote "'". It is guaranteed to exist due to the
-  // check in `consume_quoted_body`.
+  // Skip the terminating single quote "'". It is guaranteed to exist after the
+  // null check.
   ++s;
+  tok->token_type = TK_ICONST;
+  tok->constant.int_val = res;
+  tok->loc = start;
+  tok->size = s - start;
   return s - start;
 }
 
