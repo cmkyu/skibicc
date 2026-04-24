@@ -60,12 +60,12 @@ bool lex_punctuator(const char* s, token* tok);
 //! are supported. They are translated into integer byte by byte.
 //! - Unsupported escape sequences will get translated into the character after
 //! the slash, so for example given '\o', it is translated into 'o'.
-uint64_t lex_char_constant(const char* s, token* tok);
+bool lex_char_constant(const char* s, token* tok);
 
 //! Returns the length of the string literal starting at the character pointed
 //! to by `s`. Returns 0 if it is not a string literal.
 //! - Unsupported escape sequences will get translated into the character after
 //! the slash, so for example given '\o', it is translated into 'o'.
-uint64_t lex_string_literal(const char* s);
+bool lex_string_literal(const char* s, token* tok);
 
 #endif  // SKIBICC_LEXER_H

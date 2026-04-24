@@ -339,39 +339,16 @@ bool lex_punctuator(const char* s, token* tok) {
 }
 
 typedef enum char_width {
-  CW_8 = 1,
-  CW_16 = 2,
-  CW_32 = 4,
+  CW_1 = 1,
+  CW_2 = 2,
+  CW_4 = 4,
 } char_width;
-
-static void copy_char(uint32_t c, void* dst, char_width char_width) {
-  uint8_t char_8 = 0;
-  uint16_t char_16 = 0;
-
-  // Bit-wise operation is endian agnostic, unlike memcpy. But why don't we just
-  // assume little endlianess and make life much easier? Because I hate myself.
-  switch (char_width) {
-    case CW_8:
-      char_8 = c | 0xff;
-      memcpy(dst, &char_8, CW_8);
-      break;
-    case CW_16:
-      char_16 = c | 0xffff;
-      memcpy(dst, &char_16, CW_16);
-      break;
-    case CW_32:
-      memcpy(dst, &c, CW_32);
-      break;
-    default:
-      error("FATAL: Unexpected char_width enum: %d\n", char_width);
-  }
-}
 
 //! If `s` matches a hex escape sequence (characters after the "\x" prefix),
 //! returns `s` after skipping the sequence. Exits with an error if `s` is an
 //! invalid hex escape sequence. A hex escape sequence is invalid if it is
 //! empty. `char_width` is the width of characters in`s` in bytes.
-static const char* consume_hex_escape_sequence(const char* s, void* dst,
+static const char* consume_hex_escape_sequence(const char* s, uint32_t* dst,
                                                char_width char_width) {
   uint32_t c = 0;
   size_t len = 0;
@@ -395,11 +372,11 @@ static const char* consume_hex_escape_sequence(const char* s, void* dst,
     // TODO: Make this error message nicer with file name, line:col number, etc.
     error("error: \\x used with no following hex digits.");
   }
-  copy_char(c, dst, char_width);
+  *dst = c;
   return s;
 }
 
-static const char* consume_oct_escape_sequence(const char* s, void* dst,
+static const char* consume_oct_escape_sequence(const char* s, uint32_t* dst,
                                                char_width char_width) {
   uint32_t c = 0;
   size_t len = 0;
@@ -411,10 +388,10 @@ static const char* consume_oct_escape_sequence(const char* s, void* dst,
     ++len;
   }
   // 1 byte holds at most an integer value of 255.
-  if (char_width == CW_8 && c > '\377') {
+  if (char_width == CW_1 && c > '\377') {
     error("error: octal escape sequence out of range.");
   }
-  copy_char(c, dst, char_width);
+  *dst = c;
   return s;
 }
 
@@ -472,7 +449,7 @@ static char get_escape_char(char c) {
 //! or characters will be treated as normal characters.
 //!
 //! - Sequences like '\x' are invalid hex escape sequences, we return `NULL`.
-static const char* consume_escape_sequence(const char* s, void* dst,
+static const char* consume_escape_sequence(const char* s, uint32_t* dst,
                                            char_width char_width) {
   if (*s == 'x') {
     ++s;
@@ -481,35 +458,12 @@ static const char* consume_escape_sequence(const char* s, void* dst,
   if (is_oct_digit(*s)) {
     return consume_oct_escape_sequence(s, dst, char_width);
   }
-  uint32_t c = (uint32_t)get_escape_char(*s);
-  copy_char(c, dst, char_width);
+  *dst = get_escape_char(*s);
   return s + 1;
 }
 
-//! If `s` matches the "body" of a character or string literal, that is, the
-//! content between the `quote`s, returns `s` after skipping the body
-//! (note that it does NOT skip the terminating `quote`). Returns `NULL`
-//! if `s` does not have a terminating `quote` character. It is assumed that `s`
-//! does not start with a `quote` character and that `s` is non-empty.
-static const char* consume_quoted_body(const char* s, char quote) {
-  while (*s != '\0' && *s != '\n') {
-    if (*s == quote) {
-      // End of string literal.
-      return s;
-    }
-    if (*s == '\\') {
-      ++s;
-      ASSIGN_OR_RETURN(s, consume_escape_sequence(s));
-      continue;
-    }
-    ++s;
-  }
-  // Unterminated string/char literal.
-  return NULL;
-}
-
 //! Returns true if `c` is a character literal prefix. Otherwise returns false.
-static bool is_char_prefix(char c) { return c == 'L' || tolower(c) == 'u'; }
+static bool is_char_prefix(char c) { return c == 'L' || c == 'u' || c == 'U'; }
 
 //! If `s` matches the "body" of a wide character literal, that is, the content
 //! between the single quotes ("'"), returns `s` after skipping the body (note
@@ -524,9 +478,9 @@ static const char* consume_wide_char_body(const char* s, uint32_t* dst) {
 
   // Prefix u: 2 byte character. Prefix U or L: 4 byte character.
   char prefix = s[0];
-  char_width char_width = CW_16;
+  char_width char_width = CW_2;
   if (prefix == 'U' || prefix == 'L') {
-    char_width = CW_32;
+    char_width = CW_4;
   }
   s += 2;
 
@@ -535,21 +489,12 @@ static const char* consume_wide_char_body(const char* s, uint32_t* dst) {
     return NULL;
   }
 
-  uint16_t char_16 = 0;
-  uint32_t char_32 = 0;
   if (*s == '\\') {
     ++s;
-    if (char_width == CW_16) {
-      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &char_16, char_width));
-      *dst = (uint32_t)char_16;
-    } else {  // CW_32
-      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &char_32, char_width));
-      *dst = char_32;
-    }
+    ASSIGN_OR_RETURN(s, consume_escape_sequence(s, dst, char_width));
   } else {
     // TODO: need a UTF-8 decode method.
-    uint32_t c = (uint32_t)*s;
-    copy_char(c, dst, char_width);
+    *dst = (uint32_t)*s;
     ++s;
   }
   // Wide char cannot have more than 1 character.
@@ -565,31 +510,36 @@ static const char* consume_char_body(const char* s, uint32_t* dst) {
     return NULL;
   }
   ++s;
-  if (*s == '\'' || *s == '\0' || *s == '\n') {
+  if (*s == '\'') {
     // Empty char.
     return NULL;
   }
 
+  size_t len = 0;
   while (*s != '\0' && *s != '\n') {
     if (*s == '\'') {
+      if (len > 0) {
+        // TODO: make this warning pretty.
+        fprintf(stderr, "warning: multi-character character constant\n");
+      }
       // End of char literal.
       return s;
     }
     if (*s == '\\') {
       ++s;
-      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, dst, CW_8));
+      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, dst, CW_1));
       continue;
     }
     // TODO: need a UTF-8 decode method.
-    uint32_t c = (uint32_t)*s;
-    copy_char(c, dst, CW_8);
+    *dst = (uint32_t)*s;
     ++s;
+    ++len;
   }
   // Unterminated string/char literal.
   return NULL;
 }
 
-uint64_t lex_char_constant(const char* s, token* tok) {
+bool lex_char_constant(const char* s, token* tok) {
   uint32_t res = 0;
   const char* start = s;
   s = consume_char_body(s, &res);
@@ -597,43 +547,100 @@ uint64_t lex_char_constant(const char* s, token* tok) {
     s = consume_wide_char_body(s, &res);
   }
   if (!s) {
-    return NULL;
+    return false;
   }
   // Skip the terminating single quote "'". It is guaranteed to exist after the
   // null check.
   ++s;
   tok->token_type = TK_ICONST;
-  tok->constant.int_val = res;
+  tok->constant.int_val = (uint64_t)res;
   tok->loc = start;
   tok->size = s - start;
-  return s - start;
+  return true;
 }
 
-uint64_t lex_string_literal(const char* s) {
-  const char* start = s;
-  // String prefixes: u8, u, U, L.
-  // u8, u: max 2 hex digits
-  // U, L: max 8 hex digits
-  if (s[0] == 'U' || s[0] == 'L') {
-    ++s;
-  } else if (strncmp(s, "u8", 2) == 0) {
-    s += 2;
-  } else if (s[0] == 'u') {
-    ++s;
+static void copy_char(uint32_t c, void* dst, char_width char_width) {
+  switch (char_width) {
+    case CW_1:
+      *(uint8_t*)dst = (uint8_t)c;
+      break;
+    case CW_2:
+      *(uint16_t*)dst = (uint16_t)c;
+      break;
+    case CW_4:
+      *(uint32_t*)dst = c;
+      break;
+    default:
+      error("FATAL: Unexpected char_width enum: %d\n", char_width);
   }
+}
 
+//! If `s` matches the "body" of a string literal, that is, the content between
+//! the double quotes ('"'), returns `s` after skipping the body (note that it
+//! does NOT skip the terminating `quote`). Returns `NULL` if `s` is not a
+//! string literal.
+static const char* consume_string_body(const char* s, array* arr,
+                                       char_width char_width) {
   if (*s != '\"') {
-    return 0;
+    return NULL;
   }
   ++s;
-  s = consume_quoted_body(s, /*quote=*/'\"');
+
+  while (*s != '\0' && *s != '\n') {
+    if (*s == '\"') {
+      // End of string literal.
+      void* dst = array_push_back(arr);
+      copy_char('\0', dst, char_width);
+      return s;
+    }
+
+    uint32_t c = 0;
+    void* dst = array_push_back(arr);
+    if (*s == '\\') {
+      ++s;
+      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &c, char_width));
+    } else {
+      // TODO: need a UTF decode method.
+      c = (uint32_t)*s;
+      ++s;
+    }
+    copy_char(c, dst, char_width);
+  }
+  // Unterminated string literal.
+  return NULL;
+}
+
+bool lex_string_literal(const char* s, token* tok) {
+  const char* start = s;
+  char_width char_width = CW_1;
+  // Handle prefixes.
+  if (strncmp(s, "u8", 2) == 0) {
+    // u8: 1 byte character, UTF-8
+    char_width = CW_1;
+    s += 2;
+  } else if (s[0] == 'u') {
+    // u: 2 byte character, UTF-16
+    char_width = CW_2;
+    ++s;
+  } else if (s[0] == 'U' || s[0] == 'L') {
+    // U, L: 4 byte character, UTF-32
+    char_width = CW_4;
+    ++s;
+  }
+  array arr;
+  array_init(&arr, /*item_size=*/char_width);
+
+  s = consume_string_body(s, &arr, char_width);
   if (!s) {
     return 0;
   }
-  // Skip the terminating double quote. It is guaranteed to exist due to the
-  // check in `consume_quoted_body`.
+  // Skip the terminating double quote.
   ++s;
-  return s - start;
+  tok->token_type = TK_STRLIT;
+  tok->constant.str_val = arr.buf;
+  tok->loc = start;
+  tok->size = s - start;
+  return true;
 }
 
 array lex(char* s, size_t size) {
