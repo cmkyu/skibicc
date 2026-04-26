@@ -37,6 +37,11 @@ static void verify_integer_constant(token* tok, const char* expected_str,
   verify_tok_str(tok, expected_str);
 }
 
+static void verify_punctuator(token* tok, const char* expected) {
+  TEST_ASSERT_EQUAL(TK_PUNCT, tok->token_type);
+  verify_tok_str(tok, expected);
+}
+
 void test_lex_identifier(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
@@ -214,56 +219,86 @@ void test_lex_octal_integer(void) {
 }
 
 void test_lex_hex_integer(void) {
-  TEST_ASSERT_EQUAL(3, lex_numeric_constant("0x0"));
-  TEST_ASSERT_EQUAL(3, lex_numeric_constant("0X0"));
-  TEST_ASSERT_EQUAL(6, lex_numeric_constant("0x0000"));
-  TEST_ASSERT_EQUAL(3, lex_numeric_constant("0xe"));
-  TEST_ASSERT_EQUAL(3, lex_numeric_constant("0xf"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("0x123"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("0X456"));
-  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x000456"));
-  TEST_ASSERT_EQUAL(14, lex_numeric_constant("0x1A2b3C8d9e0f"));
-  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0Xa8B3e9d0F"));
+  token tok;
+  memset(&tok, 0, sizeof(token));
 
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("0x234;"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("0x234)"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("0x234/123"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("0x234+456"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("0x234-456"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("0x234*456"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("0x234,456"));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x0", &tok));
+  verify_integer_constant(&tok, "0x0", 0);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X0", &tok));
+  verify_integer_constant(&tok, "0X0", 0);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x0000", &tok));
+  verify_integer_constant(&tok, "0x0000", 0);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xe", &tok));
+  verify_integer_constant(&tok, "0xe", 0xe);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xf", &tok));
+  verify_integer_constant(&tok, "0xf", 0xf);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x123", &tok));
+  verify_integer_constant(&tok, "0x123", 0x123);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X456", &tok));
+  verify_integer_constant(&tok, "0X456", 0x456);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x000456", &tok));
+  verify_integer_constant(&tok, "0x000456", 0x456);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1A2b3C8d9e0f", &tok));
+  verify_integer_constant(&tok, "0x1A2b3C8d9e0f", 0x1a2b3c8d9e0f);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0Xa8B3e9d0F", &tok));
+  verify_integer_constant(&tok, "0Xa8B3e9d0F", 0xa8b3e9d0f);
 
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant(";0x123"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("foobar0x123"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x123foobar"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("__0x123"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("__0x123__"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("thisdoes0x0123notcount"));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x234;", &tok));
+  verify_integer_constant(&tok, "0x234", 0x234);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x123)", &tok));
+  verify_integer_constant(&tok, "0x123", 0x123);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x456/123", &tok));
+  verify_integer_constant(&tok, "0x456", 0x456);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xabc+456", &tok));
+  verify_integer_constant(&tok, "0xabc", 0xabc);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xdef-456", &tok));
+  verify_integer_constant(&tok, "0xdef", 0xdef);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x123*456", &tok));
+  verify_integer_constant(&tok, "0x123", 0x123);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x345,456", &tok));
+  verify_integer_constant(&tok, "0x345", 0x345);
 
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0X"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0xu"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0Xull"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0X12340x"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x1234g"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x37d82ag73f"));
+  TEST_ASSERT_FALSE(lex_numeric_constant(";0x123", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("foobar0x123", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x123foobar", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("__0x123", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("__0x123__", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("thisdoes0x0123notcount", &tok));
 
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("ull0x123"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x1a23ull0x1f23"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x12aull0x1b3"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x123ullthisdoesnotcount"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0x123ullull"));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0X", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0xu", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0Xull", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0X12340x", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x1234g", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x37d82ag73f", &tok));
 
-  TEST_ASSERT_EQUAL(6, lex_numeric_constant("0x674U"));
-  TEST_ASSERT_EQUAL(6, lex_numeric_constant("0x67eU"));
-  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x67fULL"));
-  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x137llU"));
-  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x6748ll"));
-  TEST_ASSERT_EQUAL(7, lex_numeric_constant("0x237lu"));
-  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x137uLL"));
-  TEST_ASSERT_EQUAL(7, lex_numeric_constant("0x237uL"));
-  TEST_ASSERT_EQUAL(6, lex_numeric_constant("0x237U;"));
-  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0x237LLU;thisdoesnotcount"));
+  TEST_ASSERT_FALSE(lex_numeric_constant("ull0x123", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x1a23ull0x1f23", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x12aull0x1b3", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x123ullthisdoesnotcount", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x123ullull", &tok));
+
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x674U", &tok));
+  verify_integer_constant(&tok, "0x674U", 0x674);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x67eU", &tok));
+  verify_integer_constant(&tok, "0x67eU", 0x67e);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x67fULL", &tok));
+  verify_integer_constant(&tok, "0x67fULL", 0x67f);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x137llU", &tok));
+  verify_integer_constant(&tok, "0x137llU", 0x137);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x6748ll", &tok));
+  verify_integer_constant(&tok, "0x6748ll", 0x6748);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x237lu", &tok));
+  verify_integer_constant(&tok, "0x237lu", 0x237);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x137uLL", &tok));
+  verify_integer_constant(&tok, "0x137uLL", 0x137);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xabcuL", &tok));
+  verify_integer_constant(&tok, "0xabcuL", 0xabc);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xdefU;", &tok));
+  verify_integer_constant(&tok, "0xdefU", 0xdef);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x12aLLU;thisdoesnotcount", &tok));
+  verify_integer_constant(&tok, "0x12aLLU", 0x12a);
 }
 
 void test_lex_decimal_float(void) {
@@ -388,11 +423,13 @@ void test_lex_keyword(void) {
 
   token tok;
   memset(&tok, 0, sizeof(token));
+
   for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); ++i) {
     const char* word = keywords[i];
     lex_identifier(word, &tok);
     verify_keyword(&tok, word);
   }
+
   TEST_ASSERT_TRUE(lex_identifier("break;", &tok));
   verify_keyword(&tok, "break");
   TEST_ASSERT_TRUE(lex_identifier("switch{this does not count}", &tok));
@@ -412,23 +449,38 @@ void test_lex_punctuator(void) {
       "#",  "->", "++", "--", "&&", "||", "*=", "/=", "%=", "+=",  "-=",  "&=",
       "^=", "|=", "<=", ">=", "==", "!=", "<<", ">>", "##", "<<=", ">>=", "...",
   };
+
+  token tok;
+  memset(&tok, 0, sizeof(token));
+
   for (size_t i = 0; i < sizeof(punctuators) / sizeof(punctuators[0]); ++i) {
     const char* punct = punctuators[i];
-    TEST_ASSERT_EQUAL(strlen(punct), lex_punctuator(punct));
+    TEST_ASSERT_TRUE(lex_punctuator(punct, &tok));
+    verify_punctuator(&tok, punct);
   }
-  TEST_ASSERT_EQUAL(3, lex_punctuator("<<=;"));
-  TEST_ASSERT_EQUAL(3, lex_punctuator("<<==>>"));
-  TEST_ASSERT_EQUAL(1, lex_punctuator("{this does not count}"));
-  TEST_ASSERT_EQUAL(1, lex_punctuator("[123456]"));
-  TEST_ASSERT_EQUAL(2, lex_punctuator("||0||1"));
-  TEST_ASSERT_EQUAL(2, lex_punctuator("||||0||1"));
-  TEST_ASSERT_EQUAL(2, lex_punctuator("<=x=>"));
-  TEST_ASSERT_EQUAL(1, lex_punctuator("+2-3/5&6%7"));
-  TEST_ASSERT_EQUAL(1, lex_punctuator("(+2-3)/(5&6)%7"));
 
-  TEST_ASSERT_EQUAL(0, lex_punctuator("123456"));
-  TEST_ASSERT_EQUAL(0, lex_punctuator("foobar"));
-  TEST_ASSERT_EQUAL(0, lex_punctuator("x;(12+34)"));
+  TEST_ASSERT_TRUE(lex_punctuator("<<=;", &tok));
+  verify_punctuator(&tok, "<<=");
+  TEST_ASSERT_TRUE(lex_punctuator("<<==>>", &tok));
+  verify_punctuator(&tok, "<<=");
+  TEST_ASSERT_TRUE(lex_punctuator("{this does not count}", &tok));
+  verify_punctuator(&tok, "{");
+  TEST_ASSERT_TRUE(lex_punctuator("[123456]", &tok));
+  verify_punctuator(&tok, "[");
+  TEST_ASSERT_TRUE(lex_punctuator("||0||1", &tok));
+  verify_punctuator(&tok, "||");
+  TEST_ASSERT_TRUE(lex_punctuator("||||0||1", &tok));
+  verify_punctuator(&tok, "||");
+  TEST_ASSERT_TRUE(lex_punctuator("<=x=>", &tok));
+  verify_punctuator(&tok, "<=");
+  TEST_ASSERT_TRUE(lex_punctuator("+2-3/5&6%7", &tok));
+  verify_punctuator(&tok, "+");
+  TEST_ASSERT_TRUE(lex_punctuator("(+2-3)/(5&6)%7", &tok));
+  verify_punctuator(&tok, "(");
+
+  TEST_ASSERT_FALSE(lex_punctuator("123456", &tok));
+  TEST_ASSERT_FALSE(lex_punctuator("foobar", &tok));
+  TEST_ASSERT_FALSE(lex_punctuator("x;(12+34)", &tok));
 }
 
 void test_char_constant(void) {
