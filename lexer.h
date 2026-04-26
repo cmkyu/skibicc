@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "array.h"
+
 typedef enum token_type {
   TK_UNKNOWN,
   TK_KEYWRD,
@@ -67,5 +69,7 @@ bool lex_char_literal(const char* s, token* tok);
 //! - Unsupported escape sequences will get translated into the character after
 //! the slash, so for example given '\o', it is translated into 'o'.
 bool lex_string_literal(const char* s, token* tok);
+
+array lex(const char* s);
 
 #endif  // SKIBICC_LEXER_H

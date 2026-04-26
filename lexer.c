@@ -47,10 +47,6 @@ char* read_file(char* path) {
   return out_buf;
 }
 
-// TODO: Remember lexing order: String literals and constants must come before
-// punctuators. This is because string literals and constants may contain
-// characters from punctuators.
-
 //! Returns true if `c` matches [a-zA-Z_]. Otherwise returns false.
 static bool is_word_char(char c) { return isalnum(c) || c == '_'; }
 
@@ -225,6 +221,7 @@ static const char* consume_hex(const char* s, token* tok) {
     // TODO: check for overflow by comparing str_end with s before
     // consume_int_suffix.
     tok->constant.int_val = strtoull(start, NULL, /*__base=*/16);
+    return s;
   }
   // Float
   if (*s == '.') {
@@ -237,7 +234,7 @@ static const char* consume_hex(const char* s, token* tok) {
   if (!is_hex_exp_char(*s)) {
     return NULL;
   }
-  ++s;
+  ++s;  // Skip the exponent character.
   ASSIGN_OR_RETURN(s, consume_exponent(s));
   ASSIGN_OR_RETURN(s, consume_float_suffix(s));
   tok->token_type = TK_FCONST;
@@ -408,7 +405,7 @@ static const char* consume_oct_escape_sequence(const char* s, uint32_t* dst,
     ++len;
   }
   // 1 byte holds at most an integer value of 255.
-  if (char_width == CW_UTF8 && c > '\377') {
+  if (char_width == CW_UTF8 && c > 255u) {
     error("error: octal escape sequence out of range.");
   }
   *dst = c;
@@ -739,7 +736,7 @@ bool lex_string_literal(const char* s, token* tok) {
   return true;
 }
 
-array lex(char* s, size_t size) {
+array lex(const char* s) {
   array tokens;
   array_init(&tokens, sizeof(token));
 
@@ -762,6 +759,9 @@ array lex(char* s, size_t size) {
     tok->line_num = line_num;
     tok->col_num = col_num;
 
+    // TODO: Remember lexing order: String literals and constants must come
+    // before punctuators. This is because string literals and constants may
+    // contain characters from punctuators.
     bool res = false;
     res = lex_numeric_constant(s, tok);
     if (!res) {

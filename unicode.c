@@ -22,6 +22,11 @@ void encode_utf16(uint32_t c, array* arr) {
   *item = w2;
 }
 
+void encode_utf32(uint32_t c, array* arr) {
+  uint32_t* item = array_push_back(arr);
+  *item = c;
+}
+
 // Credit: https://github.com/rui314/chibicc/blob/main/unicode.c#L37
 const char* decode_utf8(const char* s, uint32_t* out) {
   uint8_t c = *s;

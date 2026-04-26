@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../lexer.h"
@@ -7,41 +9,77 @@ void setUp(void) {}
 
 void tearDown(void) {}
 
+static void verify_identifier(token* tok, const char* expected) {
+  TEST_ASSERT_EQUAL(tok->token_type, TK_IDENT);
+  char* actual = malloc(tok->size);
+  if (!actual) {
+    printf("FAILED: malloc() failed\n");
+    exit(1);
+  }
+  memcpy(actual, tok->loc, tok->size);
+  TEST_ASSERT_EQUAL_STRING_LEN(expected, actual, strlen(expected));
+  free(actual);
+}
+
 void test_lex_identifier(void) {
-  TEST_ASSERT_EQUAL(4, lex_identifier("main"));
-  TEST_ASSERT_EQUAL(4, lex_identifier("m123"));
-  TEST_ASSERT_EQUAL(4, lex_identifier("m12n"));
+  token tok;
+  memset(&tok, 0, sizeof(token));
 
-  TEST_ASSERT_EQUAL(9, lex_identifier("foobarbaz"));
-  TEST_ASSERT_EQUAL(9, lex_identifier("FooBarbaZ"));
-  TEST_ASSERT_EQUAL(9, lex_identifier("fo4bAr7Az"));
-  TEST_ASSERT_EQUAL(11, lex_identifier("fo_4bAr7_Az"));
-  TEST_ASSERT_EQUAL(12, lex_identifier("_fo_4bAr7_Az"));
-  TEST_ASSERT_EQUAL(15, lex_identifier("__fo_4bAr7_Az__"));
-  TEST_ASSERT_EQUAL(15, lex_identifier("____fo_4bAr7_Az"));
-  TEST_ASSERT_EQUAL(18, lex_identifier("____fo_4bAr7_Az___"));
-  TEST_ASSERT_EQUAL(5, lex_identifier("_1234"));
-  TEST_ASSERT_EQUAL(6, lex_identifier("_1234_"));
-  TEST_ASSERT_EQUAL(6, lex_identifier("__1234"));
-  TEST_ASSERT_EQUAL(8, lex_identifier("__1234__"));
-  TEST_ASSERT_EQUAL(7, lex_identifier("___1234"));
-  TEST_ASSERT_EQUAL(10, lex_identifier("___1234___"));
+  TEST_ASSERT_TRUE(lex_identifier("main", &tok));
+  verify_identifier(&tok, "main");
+  TEST_ASSERT_TRUE(lex_identifier("m123", &tok));
+  verify_identifier(&tok, "m123");
+  TEST_ASSERT_TRUE(lex_identifier("m12n", &tok));
+  verify_identifier(&tok, "m12n");
 
-  TEST_ASSERT_EQUAL(6, lex_identifier("foobar;thisdoesnotcount"));
-  TEST_ASSERT_EQUAL(6, lex_identifier("foobar thisdoesnotcount"));
-  TEST_ASSERT_EQUAL(6, lex_identifier("foobar{thisdoesnotcount}"));
-  TEST_ASSERT_EQUAL(6, lex_identifier("foobar/thisdoesnotcount"));
+  TEST_ASSERT_TRUE(lex_identifier("foobarbaz", &tok));
+  verify_identifier(&tok, "foobarbaz");
+  TEST_ASSERT_TRUE(lex_identifier("FooBarbaZ", &tok));
+  verify_identifier(&tok, "FooBarbaZ");
+  TEST_ASSERT_TRUE(lex_identifier("fo4bAr7Az", &tok));
+  verify_identifier(&tok, "fo4bAr7Az");
+  TEST_ASSERT_TRUE(lex_identifier("fo_4bAr7_Az", &tok));
+  verify_identifier(&tok, "fo_4bAr7_Az");
+  TEST_ASSERT_TRUE(lex_identifier("_fo_4bAr7_Az", &tok));
+  verify_identifier(&tok, "_fo_4bAr7_Az");
+  TEST_ASSERT_TRUE(lex_identifier("__fo_4bAr7_Az__", &tok));
+  verify_identifier(&tok, "__fo_4bAr7_Az__");
+  TEST_ASSERT_TRUE(lex_identifier("____fo_4bAr7_Az", &tok));
+  verify_identifier(&tok, "____fo_4bAr7_Az");
+  TEST_ASSERT_TRUE(lex_identifier("____fo_4bAr7_Az___", &tok));
+  verify_identifier(&tok, "____fo_4bAr7_Az___");
+  TEST_ASSERT_TRUE(lex_identifier("_1234", &tok));
+  verify_identifier(&tok, "_1234");
+  TEST_ASSERT_TRUE(lex_identifier("_1234_", &tok));
+  verify_identifier(&tok, "_1234_");
+  TEST_ASSERT_TRUE(lex_identifier("__1234", &tok));
+  verify_identifier(&tok, "__1234");
+  TEST_ASSERT_TRUE(lex_identifier("__1234__", &tok));
+  verify_identifier(&tok, "__1234__");
+  TEST_ASSERT_TRUE(lex_identifier("___1234", &tok));
+  verify_identifier(&tok, "___1234");
+  TEST_ASSERT_TRUE(lex_identifier("___1234___", &tok));
+  verify_identifier(&tok, "___1234___");
 
-  TEST_ASSERT_EQUAL(0, lex_identifier(""));
-  TEST_ASSERT_EQUAL(0, lex_identifier(";thisdoesnotcount"));
-  TEST_ASSERT_EQUAL(0, lex_identifier(" thisdoesnotcount}"));
-  TEST_ASSERT_EQUAL(0, lex_identifier("{thisdoesnotcount}"));
-  TEST_ASSERT_EQUAL(0, lex_identifier("/thisdoesnotcount"));
+  TEST_ASSERT_TRUE(lex_identifier("foobar;thisdoesnotcount", &tok));
+  verify_identifier(&tok, "foobar");
+  TEST_ASSERT_TRUE(lex_identifier("foobar thisdoesnotcount", &tok));
+  verify_identifier(&tok, "foobar");
+  TEST_ASSERT_TRUE(lex_identifier("foobar{thisdoesnotcount}", &tok));
+  verify_identifier(&tok, "foobar");
+  TEST_ASSERT_TRUE(lex_identifier("foobar/thisdoesnotcount", &tok));
+  verify_identifier(&tok, "foobar");
 
-  TEST_ASSERT_EQUAL(0, lex_identifier("123456"));
-  TEST_ASSERT_EQUAL(0, lex_identifier("0xab12c"));
-  TEST_ASSERT_EQUAL(0, lex_identifier("01234"));
-  TEST_ASSERT_EQUAL(0, lex_identifier("123foobar"));
+  TEST_ASSERT_FALSE(lex_identifier("", &tok));
+  TEST_ASSERT_FALSE(lex_identifier(";thisdoesnotcount", &tok));
+  TEST_ASSERT_FALSE(lex_identifier(" thisdoesnotcount}", &tok));
+  TEST_ASSERT_FALSE(lex_identifier("{thisdoesnotcount}", &tok));
+  TEST_ASSERT_FALSE(lex_identifier("/thisdoesnotcount", &tok));
+
+  TEST_ASSERT_FALSE(lex_identifier("123456", &tok));
+  TEST_ASSERT_FALSE(lex_identifier("0xab12c", &tok));
+  TEST_ASSERT_FALSE(lex_identifier("01234", &tok));
+  TEST_ASSERT_FALSE(lex_identifier("123foobar", &tok));
 }
 
 void test_lex_decimal_integer(void) {
