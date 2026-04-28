@@ -42,6 +42,13 @@ static void verify_punctuator(token* tok, const char* expected) {
   verify_tok_str(tok, expected);
 }
 
+static void verify_float_constant(token* tok, const char* expected_str,
+                                  double expected) {
+  TEST_ASSERT_EQUAL(TK_FCONST, tok->token_type);
+  TEST_ASSERT_EQUAL_DOUBLE(expected, tok->constant.float_val);
+  verify_tok_str(tok, expected_str);
+}
+
 void test_lex_identifier(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
@@ -302,53 +309,85 @@ void test_lex_hex_integer(void) {
 }
 
 void test_lex_decimal_float(void) {
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant("1234.;"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant(".2234 "));
-  TEST_ASSERT_EQUAL(9, lex_numeric_constant("3234.1234+"));
-  TEST_ASSERT_EQUAL(6, lex_numeric_constant("4234.f;"));
-  TEST_ASSERT_EQUAL(6, lex_numeric_constant(".5234F "));
-  TEST_ASSERT_EQUAL(10, lex_numeric_constant("6234.1234l+"));
-  TEST_ASSERT_EQUAL(6, lex_numeric_constant("7234.L;"));
+  token tok;
+  memset(&tok, 0, sizeof(token));
 
-  TEST_ASSERT_EQUAL(8, lex_numeric_constant("8234.e12;"));
-  TEST_ASSERT_EQUAL(10, lex_numeric_constant(".9234E0056 "));
-  TEST_ASSERT_EQUAL(12, lex_numeric_constant("4334.1234e33+"));
-  TEST_ASSERT_EQUAL(9, lex_numeric_constant("8234.e+12;"));
-  TEST_ASSERT_EQUAL(9, lex_numeric_constant("2234.E-12;"));
-  TEST_ASSERT_EQUAL(10, lex_numeric_constant(".9204e+056 "));
-  TEST_ASSERT_EQUAL(9, lex_numeric_constant(".5234e-56 "));
-  TEST_ASSERT_EQUAL(13, lex_numeric_constant("2434.1234e+33+"));
-  TEST_ASSERT_EQUAL(13, lex_numeric_constant("1236.1234e-33+"));
-  TEST_ASSERT_EQUAL(10, lex_numeric_constant("5234.E+12f;"));
-  TEST_ASSERT_EQUAL(10, lex_numeric_constant(".0234e-56l "));
-  TEST_ASSERT_EQUAL(14, lex_numeric_constant("2284.1234e+33F+"));
-  TEST_ASSERT_EQUAL(14, lex_numeric_constant("1904.1234E-33f+"));
+  TEST_ASSERT_TRUE(lex_numeric_constant("1234.;", &tok));
+  verify_float_constant(&tok, "1234.", 1234.);
+  TEST_ASSERT_TRUE(lex_numeric_constant(".2234 ", &tok));
+  verify_float_constant(&tok, ".2234", .2234);
+  TEST_ASSERT_TRUE(lex_numeric_constant("3234.1234+", &tok));
+  verify_float_constant(&tok, "3234.1234", 3234.1234);
+  TEST_ASSERT_TRUE(lex_numeric_constant("4234.f;", &tok));
+  verify_float_constant(&tok, "4234.f", 4234.);
+  TEST_ASSERT_TRUE(lex_numeric_constant(".5234F ", &tok));
+  verify_float_constant(&tok, ".5234F", .5234);
+  TEST_ASSERT_TRUE(lex_numeric_constant("6234.1234l+", &tok));
+  verify_float_constant(&tok, "6234.1234l", 6234.1234);
+  TEST_ASSERT_TRUE(lex_numeric_constant("7234.L;", &tok));
+  verify_float_constant(&tok, "7234.L", 7234.);
 
-  TEST_ASSERT_EQUAL(2, lex_numeric_constant("0.;"));
-  TEST_ASSERT_EQUAL(2, lex_numeric_constant(".0+"));
-  TEST_ASSERT_EQUAL(5, lex_numeric_constant(".0000+"));
-  TEST_ASSERT_EQUAL(4, lex_numeric_constant("0.00 "));
-  TEST_ASSERT_EQUAL(8, lex_numeric_constant("0.00000f "));
-  TEST_ASSERT_EQUAL(11, lex_numeric_constant("0000.00000f "));
-  TEST_ASSERT_EQUAL(12, lex_numeric_constant("0.00000e000f "));
-  TEST_ASSERT_EQUAL(15, lex_numeric_constant("0000123.000123l+"));
-  TEST_ASSERT_EQUAL(19, lex_numeric_constant("0000123.000123e000l+"));
+  TEST_ASSERT_TRUE(lex_numeric_constant("8234.e12;", &tok));
+  verify_float_constant(&tok, "8234.e12", 8234.e12);
+  TEST_ASSERT_TRUE(lex_numeric_constant(".9234E009 ", &tok));
+  verify_float_constant(&tok, ".9234E009", .9234e9);
+  TEST_ASSERT_TRUE(lex_numeric_constant("4334.1234e33+", &tok));
+  verify_float_constant(&tok, "4334.1234e33", 4334.1234e33);
+  TEST_ASSERT_TRUE(lex_numeric_constant("8234.e+12;", &tok));
+  verify_float_constant(&tok, "8234.e+12", 8234.e12);
+  TEST_ASSERT_TRUE(lex_numeric_constant("2234.E-12;", &tok));
+  verify_float_constant(&tok, "2234.E-12", 2234.e-12);
+  TEST_ASSERT_TRUE(lex_numeric_constant(".9204e+056 ", &tok));
+  verify_float_constant(&tok, ".9204e+056", .9204e56);
+  TEST_ASSERT_TRUE(lex_numeric_constant(".5234e-56 ", &tok));
+  verify_float_constant(&tok, ".5234e-56", .5234e-56);
+  TEST_ASSERT_TRUE(lex_numeric_constant("2434.1234e+33+", &tok));
+  verify_float_constant(&tok, "2434.1234e+33", 2434.1234e33);
+  TEST_ASSERT_TRUE(lex_numeric_constant("1236.1234e-33+", &tok));
+  verify_float_constant(&tok, "1236.1234e-33", 1236.1234e-33);
+  TEST_ASSERT_TRUE(lex_numeric_constant("5234.E+12f;", &tok));
+  verify_float_constant(&tok, "5234.E+12f", 5234.e12);
+  TEST_ASSERT_TRUE(lex_numeric_constant(".0234e-56l ", &tok));
+  verify_float_constant(&tok, ".0234e-56l", .0234e-56);
+  TEST_ASSERT_TRUE(lex_numeric_constant("2284.1234e+33F+", &tok));
+  verify_float_constant(&tok, "2284.1234e+33F", 2284.1234e33);
+  TEST_ASSERT_TRUE(lex_numeric_constant("1904.1234E-33f+", &tok));
+  verify_float_constant(&tok, "1904.1234E-33f", 1904.1234e-33);
 
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("0f "));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("00000f "));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.a;"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.e;"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234a.e12;"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.e1a2;"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.E/123;"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("e"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("E"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("."));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".e"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".f"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".E12f"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant(".ef"));
-  TEST_ASSERT_EQUAL(0, lex_numeric_constant("1234.1234e-33fa"));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0.;", &tok));
+  verify_float_constant(&tok, "0.", 0.0);
+  TEST_ASSERT_TRUE(lex_numeric_constant(".0+", &tok));
+  verify_float_constant(&tok, ".0", 0.0);
+  TEST_ASSERT_TRUE(lex_numeric_constant(".0000+", &tok));
+  verify_float_constant(&tok, ".0000", 0.0);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0.00 ", &tok));
+  verify_float_constant(&tok, "0.00", 0.0);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0.00000f ", &tok));
+  verify_float_constant(&tok, "0.00000f", 0.0);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0000.00000f ", &tok));
+  verify_float_constant(&tok, "0000.00000f", 0.0);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0.00000e000f ", &tok));
+  verify_float_constant(&tok, "0.00000e000f", 0.0);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0000123.000123L+", &tok));
+  verify_float_constant(&tok, "0000123.000123L", 0000123.000123);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0000123.000123e000l+", &tok));
+  verify_float_constant(&tok, "0000123.000123e000l", 0000123.000123e000);
+
+  TEST_ASSERT_FALSE(lex_numeric_constant("0f ", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("00000f ", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("1234.a;", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("1234.e;", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("1234a.e12;", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("1234.e1a2;", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("1234.E/123;", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("e", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("E", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".e", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".f", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".E12f", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".ef", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("1234.1234e-33fa", &tok));
 }
 
 void test_lex_hex_float(void) {

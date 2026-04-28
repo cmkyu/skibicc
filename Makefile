@@ -44,7 +44,7 @@ PASSED = `grep -s PASS $(TEST)*.txt`
 FAIL = `grep -s FAIL $(TEST)*.txt`
 IGNORE = `grep -s IGNORE $(TEST)*.txt`
 
-test: CFLAGS += -g -I$(UNITY) -DTEST
+test: CFLAGS += -g -I$(UNITY) -DTEST -DUNITY_INCLUDE_DOUBLE
 test: $(RESULTS)
 	@echo "-----------------------IGNORES:-----------------------"
 	@echo "$(IGNORE)"
