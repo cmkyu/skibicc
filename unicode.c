@@ -10,6 +10,7 @@ void encode_utf16(uint32_t c, array* arr) {
   if (c <= 0xFFFF) {
     uint16_t* item = array_push_back(arr);
     *item = (uint16_t)c;
+    return;
   }
 
   c -= 0x10000;
@@ -30,7 +31,7 @@ void encode_utf32(uint32_t c, array* arr) {
 // Credit: https://github.com/rui314/chibicc/blob/main/unicode.c#L37
 const char* decode_utf8(const char* s, uint32_t* out) {
   uint8_t c = *s;
-  if (c < 0x7F) {
+  if (c <= 0x7F) {
     *out = (uint32_t)c;
     return s + 1;
   }

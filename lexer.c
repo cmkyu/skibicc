@@ -676,7 +676,7 @@ static const char* consume_utf32_str_body(const char* s, array* arr) {
   }
   ++s;
 
-  array_init(arr, /*item_size=*/CW_UTF16);
+  array_init(arr, /*item_size=*/CW_UTF32);
   while (*s != '\0' && *s != '\n') {
     if (*s == '\"') {
       // End of string literal.
@@ -689,7 +689,7 @@ static const char* consume_utf32_str_body(const char* s, array* arr) {
       // Escape sequence.
       ++s;
       uint32_t c = 0;
-      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &c, CW_UTF16));
+      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &c, CW_UTF32));
       void* dst = array_push_back(arr);
       *(uint32_t*)dst = c;
     } else {
@@ -725,7 +725,7 @@ bool lex_string_literal(const char* s, token* tok) {
   }
 
   if (!s) {
-    return 0;
+    return false;
   }
   // Skip the terminating double quote.
   ++s;
