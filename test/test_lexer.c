@@ -17,7 +17,8 @@ static void verify_tok_str(token* tok, const char* expected) {
     exit(1);
   }
   memcpy(actual, tok->loc, tok->size);
-  TEST_ASSERT_EQUAL_STRING_LEN(expected, actual, strlen(expected));
+  TEST_ASSERT_EQUAL(strlen(expected), tok->size);
+  TEST_ASSERT_EQUAL_STRING_LEN(expected, actual, tok->size);
   free(actual);
 }
 

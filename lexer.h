@@ -56,6 +56,11 @@ typedef struct token {
 //! Reads a file from `path` and returns its content.
 char* read_file(char* path);
 
+//! Given a source code buffer `s`, returns an array of tokens.
+array lex(const char* s);
+
+// ------------ Exposed for testing only ------------
+
 //! Returns true if there is an identifier token starting at the character
 //! pointed to by `s`, and populates `tok` as an identifier. Otherwise returns
 //! false, and `tok` is not changed.

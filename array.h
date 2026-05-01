@@ -30,4 +30,7 @@ void* array_at(array* arr, size_t index);
 //! inserted element.
 void* array_push_back(array* arr);
 
+//! Destroys and frees the content of `arr`.
+void array_destroy(array* arr);
+
 #endif  // SKIBICC_ARRAY_H

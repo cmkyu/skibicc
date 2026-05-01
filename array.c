@@ -42,3 +42,5 @@ void* array_push_back(array* arr) {
   arr->size += 1;
   return res;
 }
+
+void array_destroy(array* arr) { free(arr->buf); }

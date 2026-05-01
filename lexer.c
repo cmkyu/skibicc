@@ -745,11 +745,13 @@ array lex(const char* s) {
   while (*s) {
     if (isspace(*s)) {
       ++col_num;
+      ++s;
       continue;
     }
     if (*s == '\n') {
       ++line_num;
       col_num = 0;
+      ++s;
       continue;
     }
 
@@ -780,6 +782,7 @@ array lex(const char* s) {
     if (!res) {
       error("[%zu:%zu] error: unknown token.", line_num, col_num);
     }
+    s = tok->loc + tok->size;
     col_num += tok->size;
   }
 

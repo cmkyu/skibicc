@@ -19,6 +19,7 @@ void test_array(void) {
     uint64_t* item = array_at(&arr, i);
     TEST_ASSERT_EQUAL(i, *item);
   }
+  array_destroy(&arr);
 }
 
 int main(void) {
