@@ -121,6 +121,7 @@ int main(int argc, char* argv[]) {
   emit(f, emit_ir(ast));
   fclose(f);
   emit_code(path);
+  remove(path);
   // TODO: implement memory clean up for tokens, AST, IR and ASM.
 end:
   free(path);
