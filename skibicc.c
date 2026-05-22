@@ -45,7 +45,7 @@ static int emit_code(char* path) {
   char* obj_path = strdup(path);
   replace_ext(&obj_path, "o");
   // command: as -o obj_path -c path
-  char* command = string_concat(4, "as --64 -o ", obj_path, " -c ", path);
+  char* command = string_concat(4, "as -o ", obj_path, " -c ", path);
   int res = system(command);
   free(command);
   if (res != 0) {
