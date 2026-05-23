@@ -9,6 +9,8 @@ void setUp(void) {}
 
 void tearDown(void) {}
 
+void free_item(void* data) { free(data); }
+
 void test_list_push_front(void) {
   list* lst = list_init();
   for (uint64_t i = 1; i < 10000; ++i) {
@@ -29,7 +31,7 @@ void test_list_push_front(void) {
     --expected;
   }
 
-  list_destroy(lst);
+  list_destroy(lst, free_item);
 }
 
 void test_list_push_back(void) {
@@ -52,7 +54,7 @@ void test_list_push_back(void) {
     ++expected;
   }
 
-  list_destroy(lst);
+  list_destroy(lst, free_item);
 }
 
 void test_list_insert(void) {
@@ -94,7 +96,7 @@ void test_list_insert(void) {
     TEST_ASSERT_EQUAL(i, *(uint64_t*)cur->data);
     cur = list_next(cur);
   }
-  list_destroy(lst);
+  list_destroy(lst, free_item);
 }
 
 int main(void) {

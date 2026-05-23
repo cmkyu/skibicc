@@ -2,6 +2,7 @@
 #define SKIBICC_LIST_H
 
 #include <stddef.h>
+
 struct list_node;
 typedef struct list_node {
   void* data;
@@ -24,6 +25,6 @@ list_node* list_insert(list* lst, list_node* node, void* data);
 
 list_node* list_next(list_node* node);
 
-void list_destroy(list* lst);
+void list_destroy(list* lst, void (*free_data)(void*));
 
 #endif  // SKIBICC_LIST_H

@@ -67,7 +67,7 @@ static asm_operand* stack_allocator_get(stack_allocator* alloc, ir_val* val,
   opnd->operand.offset = alloc->offset;
 
   hashmap_entry new_entry;
-  new_entry.key = (char*)val->val.var_name;
+  new_entry.key = strndup((char*)val->val.var_name, name_len);
   new_entry.key_size = name_len;
   int64_t* data = malloc_safe(sizeof(int64_t));
   *data = alloc->offset;
@@ -127,6 +127,8 @@ static void insert_mov(asm_operand* src, asm_operand* dst,
 
     // %r10d should be the src of the next mov:
     // mov %r10d, <stack2>
+    inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+    inst->instruction_type = ASM_MOV;
     inst->src = create_register(R10D);
   }
   inst->dst = dst;
@@ -184,12 +186,14 @@ static void lower_ir_unary(ir_instruction* ir_instruction,
   asm_operand* dst = lower_ir_val(ir_instruction->dst, alloc);
   insert_mov(src, dst, asm_instructions);
 
+  asm_operand* dst_copy = malloc_safe(sizeof(asm_operand));
+  memcpy(dst_copy, dst, sizeof(asm_operand));
   switch (ir_instruction->op->op_type) {
     case OP_NEG:
-      insert_neg(dst, asm_instructions);
+      insert_neg(dst_copy, asm_instructions);
       break;
     case OP_BITNOT:
-      insert_not(dst, asm_instructions);
+      insert_not(dst_copy, asm_instructions);
       break;
     default:
       error("Unimplemented unary");
@@ -230,13 +234,13 @@ static asm_func_def* lower_ir_func_def(ir_func_def* ir_func_def) {
   return func_def;
 }
 
-asm_node* lower_ir(ir_node* ir) {
+static asm_node* lower_ir(ir_node* ir) {
   asm_node* node = calloc_safe(/*nelem=*/1, sizeof(asm_node));
   node->func_def = lower_ir_func_def(ir->function_definition);
   return node;
 }
 
-void println(FILE* f, char* fmt, ...) {
+static void println(FILE* f, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
   vfprintf(f, fmt, args);
@@ -301,8 +305,27 @@ static void emit_asm_func_def(FILE* f, asm_func_def* asm_func_def) {
   }
 }
 
+static void destroy_asm_instruction(void* data) {
+  asm_instruction* inst = (asm_instruction*)data;
+  free(inst->src);
+  free(inst->dst);
+  free(inst);
+}
+
+static void destroy_asm_func_def(asm_func_def* asm_func_def) {
+  // We don't free name here because it's owned by IR node.
+  list_destroy(asm_func_def->instructions, destroy_asm_instruction);
+  free(asm_func_def);
+}
+
+static void destroy_asm_node(asm_node* node) {
+  destroy_asm_func_def(node->func_def);
+  free(node);
+}
+
 void emit(FILE* f, ir_node* ir) {
   asm_node* node = lower_ir(ir);
   emit_asm_func_def(f, node->func_def);
   println(f, ".section .note.GNU-stack,\"\",@progbits");
+  destroy_asm_node(node);
 }

@@ -52,12 +52,12 @@ list_node* list_insert(list* lst, list_node* node, void* data) {
 
 list_node* list_next(list_node* node) { return node->next; }
 
-void list_destroy(list* lst) {
+void list_destroy(list* lst, void (*free_data)(void*)) {
   list_node* head = lst->head;
   while (head) {
     list_node* cur = head;
     head = head->next;
-    free(cur->data);
+    free_data(cur->data);
     free(cur);
   }
   free(lst);

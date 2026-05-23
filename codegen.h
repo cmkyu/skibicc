@@ -48,10 +48,8 @@ typedef struct asm_func_def {
   list* instructions;
 } asm_func_def;
 
-struct asm_node;
 typedef struct asm_node {
   asm_func_def* func_def;
-  struct asm_node* next;
 } asm_node;
 
 typedef struct stack_allocator {
