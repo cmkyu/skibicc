@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "array.h"
 #include "errors.h"
@@ -13,7 +14,7 @@ const uint64_t MAX_NAME_SIZE = 32;
 
 static uint64_t COUNT = 0;
 
-static const char* generate_name(void) {
+static char* generate_name(void) {
   char* name = malloc_safe(MAX_NAME_SIZE);
   ++COUNT;
   // Names are formatted like 1_, 2_, 3_,...
@@ -35,6 +36,15 @@ static ir_val* create_ir_val_constant(ast_node* node) {
   return val;
 }
 
+static ir_val* dup_ir_val(ir_val* val) {
+  ir_val* res = malloc_safe(sizeof(ir_val));
+  memcpy(res, val, sizeof(ir_val));
+  if (!val->is_constant) {
+    res->val.var_name = strdup(val->val.var_name);
+  }
+  return res;
+}
+
 ir_val* emit_ir_instruction(ast_node* node, array* instructions) {
   if (node->node_type == AST_VAR) {
     return create_ir_val_var();
@@ -51,7 +61,7 @@ ir_val* emit_ir_instruction(ast_node* node, array* instructions) {
     inst->op = node->node.expression->op;
     inst->lhs = lhs;
     inst->dst = create_ir_val_var();
-    return inst->dst;
+    return dup_ir_val(inst->dst);
   }
 
   if (node->node_type == AST_RETSTMNT) {
@@ -77,7 +87,6 @@ static ir_func_def* create_ir_func_def(void) {
 static ir_node* create_ir_node(void) {
   ir_node* node = calloc_safe(/*nelem=*/1, sizeof(ir_node));
   node->function_definition = create_ir_func_def();
-  node->next = NULL;
   return node;
 }
 
@@ -87,4 +96,36 @@ ir_node* emit_ir(ast_node* ast) {
   ir->function_definition->name = "main";
   emit_ir_instruction(ast, ir->function_definition->instructions);
   return ir;
+}
+
+static void destroy_ir_val(ir_val* ir_val) {
+  if (!ir_val) {
+    return;
+  }
+  if (!ir_val->is_constant) {
+    free(ir_val->val.var_name);
+  }
+  free(ir_val);
+}
+
+static void destroy_ir_instruction(ir_instruction* ir_instruction) {
+  destroy_ir_val(ir_instruction->lhs);
+  destroy_ir_val(ir_instruction->rhs);
+  destroy_ir_val(ir_instruction->dst);
+}
+
+static void destroy_ir_func_def(ir_func_def* ir_func_def) {
+  // TODO: free name here. Not doing this for now since name is hard coded.
+  array* instructions = ir_func_def->instructions;
+  for (size_t i = 0; i < instructions->size; ++i) {
+    ir_instruction* inst = array_at(instructions, i);
+    destroy_ir_instruction(inst);
+  }
+  array_destroy(instructions);
+  free(instructions);
+}
+
+void destroy_ir_node(ir_node* ir_node) {
+  destroy_ir_func_def(ir_node->function_definition);
+  free(ir_node);
 }

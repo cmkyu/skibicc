@@ -118,8 +118,12 @@ int main(int argc, char* argv[]) {
 
   replace_ext(&path, "s");
   FILE* f = fopen(path, "w+");
-  emit(f, emit_ir(ast));
+  ir_node* ir = emit_ir(ast);
+  emit(f, ir);
+
+  destroy_ir_node(ir);
   fclose(f);
+
   emit_code(path);
   remove(path);
   // TODO: implement memory clean up for tokens, AST, IR and ASM.

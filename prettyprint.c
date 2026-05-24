@@ -162,8 +162,5 @@ static void prettyprint_ir_func_def(ir_func_def* func_def) {
 }
 
 void prettyprint_ir(ir_node* ir) {
-  while (ir) {
-    prettyprint_ir_func_def(ir->function_definition);
-    ir = ir->next;
-  }
+  prettyprint_ir_func_def(ir->function_definition);
 }

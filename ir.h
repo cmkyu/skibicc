@@ -8,7 +8,7 @@
 typedef struct ir_val {
   bool is_constant;
   union {
-    const char* var_name;
+    char* var_name;
     ast_node* constant;
   } val;
 } ir_val;
@@ -34,12 +34,12 @@ typedef struct ir_func_def {
   array* instructions;
 } ir_func_def;
 
-struct ir_node;
 typedef struct ir_node {
   ir_func_def* function_definition;
-  struct ir_node* next;
 } ir_node;
 
 ir_node* emit_ir(ast_node* ast);
+
+void destroy_ir_node(ir_node* ir_node);
 
 #endif  // SKIBICC_IR_H
