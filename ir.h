@@ -40,6 +40,6 @@ typedef struct ir_node {
 
 ir_node* emit_ir(ast_node* ast);
 
-void destroy_ir_node(ir_node* ir_node);
+void ir_destroy(ir_node* ir_node);
 
 #endif  // SKIBICC_IR_H

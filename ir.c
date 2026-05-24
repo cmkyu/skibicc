@@ -125,7 +125,7 @@ static void destroy_ir_func_def(ir_func_def* ir_func_def) {
   free(instructions);
 }
 
-void destroy_ir_node(ir_node* ir_node) {
+void ir_destroy(ir_node* ir_node) {
   destroy_ir_func_def(ir_node->function_definition);
   free(ir_node);
 }

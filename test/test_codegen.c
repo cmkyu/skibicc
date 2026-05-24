@@ -25,7 +25,7 @@ void test_codegen_basic(void) {
   ir_node* ir = emit_ir(ast);
 
   emit(file, ir);
-  destroy_ir_node(ir);
+  ir_destroy(ir);
 
   fseek(file, 0, SEEK_END);
   long fsize = ftell(file);

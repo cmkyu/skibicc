@@ -121,12 +121,12 @@ int main(int argc, char* argv[]) {
   ir_node* ir = emit_ir(ast);
   emit(f, ir);
 
-  destroy_ir_node(ir);
+  ir_destroy(ir);
   fclose(f);
 
   emit_code(path);
   remove(path);
-  // TODO: implement memory clean up for tokens, AST, IR and ASM.
+  // TODO: implement memory clean up for tokens and AST.
 end:
   free(path);
   free(text);

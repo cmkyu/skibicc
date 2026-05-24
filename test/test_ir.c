@@ -42,7 +42,7 @@ void test_ir_basic(void) {
   TEST_ASSERT_EQUAL(IR_RETURN, inst->instruction_type);
   TEST_ASSERT_EQUAL_STRING("1_", inst->lhs->val.var_name);
 
-  destroy_ir_node(ir);
+  ir_destroy(ir);
   destroy_tokens(&tokens);
 }
 
