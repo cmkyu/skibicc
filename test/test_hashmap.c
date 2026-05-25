@@ -93,6 +93,7 @@ void test_hashmap_stress(void) {
     TEST_ASSERT_TRUE(*(bool*)entry->data);
     TEST_ASSERT_EQUAL(sizeof(bool), entry->data_size);
   }
+  TEST_ASSERT_EQUAL(466550, map.size);
   free(line);
   line = NULL;
 
@@ -110,17 +111,32 @@ void test_hashmap_stress(void) {
       TEST_ASSERT_EQUAL(sizeof(bool), entry.data_size);
       free(entry.key);
       free(entry.data);
+    }
+    ++i;
+  }
+  TEST_ASSERT_EQUAL(66550, map.size);
+  free(line);
+  line = NULL;
+
+  i = 0;
+  // Check if removal was successful.
+  while ((read = getline(&line, &len, fp)) != -1) {
+    hashmap_entry* entry = hashmap_get(&map, line, read);
+    if (i < remove_threshold) {
+      TEST_ASSERT_FALSE(entry);
     } else {
-      hashmap_entry* entry = hashmap_get(&map, line, read);
       TEST_ASSERT_TRUE(entry);
       TEST_ASSERT_EQUAL_STRING(line, entry->key);
       TEST_ASSERT_EQUAL(read, entry->key_size);
       TEST_ASSERT_TRUE(*(bool*)entry->data);
       TEST_ASSERT_EQUAL(sizeof(bool), entry->data_size);
     }
+    ++i;
   }
+  TEST_ASSERT_EQUAL(66550, map.size);
   free(line);
   line = NULL;
+
   hashmap_destroy(&map);
   fclose(fp);
 }
