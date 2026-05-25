@@ -45,6 +45,10 @@ typedef struct token {
     char* str_val;
   } constant;
 
+  //! Name of the file to which the token belongs.
+  const char* filename;
+  //! Pointer to the start of the line to which the token belongs.
+  const char* line;
   //! Pointer to the starting character of the token in the source code buffer.
   const char* loc;
   //! Length of the string that constitutes the token.
@@ -58,8 +62,9 @@ typedef struct token {
 //! Reads a file from `path` and returns its content.
 char* read_file(char* path);
 
-//! Given a source code buffer `s`, returns an array of tokens.
-array lex(const char* s);
+//! Given a source code buffer `s` read from `filename`, returns an array of
+//! tokens.
+array lex(const char* s, const char* filename);
 
 //! Frees all objects and memory related to `tokens`. The user is responsible
 //! for freeing the array object itself.

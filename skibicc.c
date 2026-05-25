@@ -99,7 +99,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  char* path = run_preprocessor(argv[optind]);
+  char* filename = argv[optind];
+  char* path = run_preprocessor(filename);
   if (!path) {
     return 1;
   }
@@ -109,7 +110,7 @@ int main(int argc, char* argv[]) {
   }
   remove(path);
 
-  array tokens = lex(text);
+  array tokens = lex(text, filename);
   if (opt == CO_LEX) {
     destroy_tokens(&tokens);
     free(path);

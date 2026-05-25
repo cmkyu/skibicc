@@ -9,10 +9,8 @@
 //! Reports an error and exit.
 void error(char* fmt, ...);
 
-//! Reports an unexpected token error and exit.
-void error_tok(token* tok);
-
-//! Reports an unexpected token error, followed by a message `fmt` and exit.
+//! Reports a formatted compilation error with `tok`, followed by a message
+//! `fmt` and exit.
 void error_tok_fmt(token* tok, char* fmt, ...);
 
 //! Delegates to `malloc`, but if `malloc` returns `NULL`, exits the program

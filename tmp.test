@@ -1,0 +1,4 @@
+int foobar(void) {
+  int i = '\xffffffffffff';
+  return 0;
+}

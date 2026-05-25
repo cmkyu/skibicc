@@ -355,12 +355,14 @@ typedef enum char_width {
 
 //! If `s` matches a hex escape sequence (characters after the "\x" prefix),
 //! returns `s` after skipping the sequence. `dst` will contain the translated
-//! integer value of the hex escape sequence after the function returns. Exits
-//! with an error if `s` is an invalid hex escape sequence. A hex escape
-//! sequence is invalid if it is empty or has more digits than permitted by
-//! `char_width`. `char_width` is the width of characters in`s` in bytes.
+//! integer value of the hex escape sequence after the function returns.
+//! `error_msg` will point to an error message if `s` is an invalid hex
+//! escape sequence. A hex escape sequence is invalid if it is empty or has more
+//! digits than permitted by `char_width`. `char_width` is the width of
+//! characters in`s` in bytes. Note that an invalid sequence is still consumed.
 static const char* consume_hex_escape_sequence(const char* s, uint32_t* dst,
-                                               char_width char_width) {
+                                               char_width char_width,
+                                               char** error_msg) {
   uint32_t c = 0;
   size_t len = 0;
   size_t max_len = char_width * 2;
@@ -375,13 +377,13 @@ static const char* consume_hex_escape_sequence(const char* s, uint32_t* dst,
     ++s;
     ++len;
     if (len > max_len) {
-      error("error: hex escape sequence out of range.");
+      *error_msg = "hex escape sequence out of range.";
     }
   }
   if (len == 0) {
     // No hex digits is an error.
     // TODO: Make this error message nicer with file name, line:col number, etc.
-    error("error: \\x used with no following hex digits.");
+    *error_msg = "\\x used with no following hex digits.";
   }
   *dst = c;
   return s;
@@ -389,12 +391,14 @@ static const char* consume_hex_escape_sequence(const char* s, uint32_t* dst,
 
 //! If `s` matches a octal escape sequence (characters after the "\x" prefix),
 //! returns `s` after skipping the sequence. `dst` will contain the translated
-//! integer value of the octal escape sequence after the function returns. Exits
-//! with an error if `s` is an invalid octal escape sequence. A octal escape
-//! sequence is invalid if it has more digits than permitted by `char_width`.
-//! `char_width` is the width of characters in`s` in bytes.
+//! integer value of the octal escape sequence after the function returns.
+//! `error_msg` will point to an error message if `s` is an invalid octal escape
+//! sequence.  A octal escape sequence is invalid if it has more digits than
+//! permitted by `char_width`. `char_width` is the width of characters in`s` in
+//! bytes. Note that an invalid sequence is still consumed
 static const char* consume_oct_escape_sequence(const char* s, uint32_t* dst,
-                                               char_width char_width) {
+                                               char_width char_width,
+                                               char** error_msg) {
   uint32_t c = 0;
   size_t len = 0;
   // Octal escape sequence has at most 3 characters.
@@ -406,7 +410,7 @@ static const char* consume_oct_escape_sequence(const char* s, uint32_t* dst,
   }
   // 1 byte holds at most an integer value of 255.
   if (char_width == CW_UTF8 && c > 255u) {
-    error("error: octal escape sequence out of range.");
+    *error_msg = "octal escape sequence out of range.";
   }
   *dst = c;
   return s;
@@ -452,9 +456,9 @@ static char get_escape_char(char c) {
 //! If `s` matches an escape sequence (characters after the slash '\') whose
 //! characters have width `char_width`, returns `s` after skipping the sequence.
 //! `dst` will contain the translated escape sequence in integer form after the
-//! function returns. Exits with an error if the escape sequence is invalid. It
-//! is assumed that `s` does not start with the slash '\'. It is guaranteed that
-//! the return result is never `NULL`.
+//! function returns. `error_msg` will contain an error message if the escape
+//! sequence is invalid. It is assumed that `s` does not start with the slash
+//! '\'. It is guaranteed that the return result is never `NULL`.
 //!
 //! Some details on escape sequences:
 //! - As an example, '\t', '\v', etc are legitimate escape sequences. We skip 1
@@ -470,13 +474,14 @@ static char get_escape_char(char c) {
 //! the range permitted by `char_width`. E.g., '\777' is invalid if char_width
 //! is 1 byte.
 static const char* consume_escape_sequence(const char* s, uint32_t* dst,
-                                           char_width char_width) {
+                                           char_width char_width,
+                                           char** error_msg) {
   if (*s == 'x') {
     ++s;
-    return consume_hex_escape_sequence(s, dst, char_width);
+    return consume_hex_escape_sequence(s, dst, char_width, error_msg);
   }
   if (is_oct_digit(*s)) {
-    return consume_oct_escape_sequence(s, dst, char_width);
+    return consume_oct_escape_sequence(s, dst, char_width, error_msg);
   }
   // No additional encoding is required because all escape characters are ASCII.
   // UTF-8, UTF-16, and UTF-32 are ASCII compatible.
@@ -490,8 +495,10 @@ static bool is_char_prefix(char c) { return c == 'L' || c == 'u' || c == 'U'; }
 //! If `s` matches a wide character literal, that is, returns `s` after skipping
 //! the literal. Returns `NULL` if `s` is not a wide character literal. `dst`
 //! will contain the integer value of the wide character after the function
-//! returns. Exits with an error if `s` contains more than 1 character.
-static const char* consume_wide_char_body(const char* s, uint32_t* dst) {
+//! returns. `error_msg` will contain an error message if `s` contains more than
+//! 1 character.
+static const char* consume_wide_char_body(const char* s, uint32_t* dst,
+                                          char** error_msg) {
   if (!(is_char_prefix(s[0]) && s[1] == '\'')) {
     return NULL;
   }
@@ -511,25 +518,40 @@ static const char* consume_wide_char_body(const char* s, uint32_t* dst) {
 
   if (*s == '\\') {
     ++s;
-    ASSIGN_OR_RETURN(s, consume_escape_sequence(s, dst, char_width));
+    ASSIGN_OR_RETURN(s, consume_escape_sequence(s, dst, char_width, error_msg));
   } else {
     s = decode_utf8(s, dst);
   }
-  // Wide char cannot have more than 1 character.
-  if (*s != '\'') {
-    error("error: %s character literal may not contain multiple characters.",
-          prefix == 'L' ? "wide" : "unicode");
+  if (*s == '\'') {
+    ++s;
+    return s;
   }
-  ++s;
-  return s;
+
+  // Wide char cannot have more than 1 character.
+  *error_msg =
+      prefix == 'L'
+          ? "wide character literal may not contain multiple characters."
+          : "unicode character literal may not contain multiple characters.";
+  while (*s != '\0' && *s != '\n') {
+    if (*s == '\'') {
+      ++s;
+      return s;
+    }
+    ++s;
+  }
+  // TODO: handle error messages for unterminated literals.
+  // Unterminated char literal.
+  return NULL;
 }
 
 //! If `s` matches a wide character literal, that is, returns `s` after skipping
 //! the literal. Returns `NULL` if `s` is not a character literal. `dst` will
 //! contain the integer value of the character literal after the function
 //! returns. Multi-character literals are supported, but only the last 4 bytes
-//! will be kept.
-static const char* consume_char_body(const char* s, uint32_t* dst) {
+//! will be kept. `error_msg` will contain an error message if the character
+//! literal has invalid escape sequence.
+static const char* consume_char_body(const char* s, uint32_t* dst,
+                                     char** error_msg) {
   if (*s != '\'') {
     return NULL;
   }
@@ -558,7 +580,8 @@ static const char* consume_char_body(const char* s, uint32_t* dst) {
       // Escape sequence.
       ++s;
       uint32_t escape = 0;
-      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &escape, CW_UTF8));
+      ASSIGN_OR_RETURN(s,
+                       consume_escape_sequence(s, &escape, CW_UTF8, error_msg));
       c = (uint8_t)escape;
     } else {
       // Regular character.
@@ -575,9 +598,10 @@ static const char* consume_char_body(const char* s, uint32_t* dst) {
 bool lex_char_literal(const char* s, token* tok) {
   uint32_t res = 0;
   const char* start = s;
-  s = consume_char_body(start, &res);
+  char* error_msg = NULL;
+  s = consume_char_body(start, &res, &error_msg);
   if (!s) {
-    s = consume_wide_char_body(start, &res);
+    s = consume_wide_char_body(start, &res, &error_msg);
   }
   if (!s) {
     return false;
@@ -586,14 +610,19 @@ bool lex_char_literal(const char* s, token* tok) {
   tok->constant.int_val = (uint64_t)res;
   tok->loc = start;
   tok->size = s - start;
+  if (error_msg) {
+    error_tok_fmt(tok, error_msg);
+  }
   return true;
 }
 
 //! If `s` matches a string literal, returns `s` after skipping the string
 //! literal. Returns `NULL` if `s` is not a string literal. `arr` will contain
 //! the content (without the double quotes) of the string literal encoded in
-//! UTF-8 after the function returns.
-static const char* consume_utf8_str_body(const char* s, array* arr) {
+//! UTF-8 after the function returns. `error_msg` will contain an error message
+//! if the string literal contains invalid escape sequence.
+static const char* consume_utf8_str_body(const char* s, array* arr,
+                                         char** error_msg) {
   if (*s != '\"') {
     return NULL;
   }
@@ -605,6 +634,7 @@ static const char* consume_utf8_str_body(const char* s, array* arr) {
       // End of string literal.
       void* dst = array_push_back(arr);
       *(uint8_t*)dst = '\0';
+      ++s;
       return s;
     }
 
@@ -613,7 +643,8 @@ static const char* consume_utf8_str_body(const char* s, array* arr) {
       // Escape sequence.
       ++s;
       uint32_t escape = 0;
-      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &escape, CW_UTF8));
+      ASSIGN_OR_RETURN(s,
+                       consume_escape_sequence(s, &escape, CW_UTF8, error_msg));
       c = (uint8_t)escape;
     } else {
       // Regular character. No transcoding needed since we assume the source
@@ -632,8 +663,10 @@ static const char* consume_utf8_str_body(const char* s, array* arr) {
 //! If `s` matches a string literal, returns `s` after skipping the string
 //! literal. Returns `NULL` if `s` is not a string literal. `arr` will contain
 //! the content (without the double quotes) of the string literal encoded in
-//! UTF-16 after the function returns.
-static const char* consume_utf16_str_body(const char* s, array* arr) {
+//! UTF-16 after the function returns. `error_msg` will contain an error message
+//! if the string literal contains invalid escape sequence.
+static const char* consume_utf16_str_body(const char* s, array* arr,
+                                          char** error_msg) {
   if (*s != '\"') {
     return NULL;
   }
@@ -645,6 +678,7 @@ static const char* consume_utf16_str_body(const char* s, array* arr) {
       // End of string literal.
       void* dst = array_push_back(arr);
       *(uint16_t*)dst = '\0';
+      ++s;
       return s;
     }
 
@@ -652,7 +686,7 @@ static const char* consume_utf16_str_body(const char* s, array* arr) {
       // Escape sequence.
       ++s;
       uint32_t c = 0;
-      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &c, CW_UTF16));
+      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &c, CW_UTF16, error_msg));
       void* dst = array_push_back(arr);
       *(uint16_t*)dst = (uint16_t)c;
     } else {
@@ -669,8 +703,10 @@ static const char* consume_utf16_str_body(const char* s, array* arr) {
 //! If `s` matches a string literal, returns `s` after skipping the string
 //! literal. Returns `NULL` if `s` is not a string literal. `arr` will contain
 //! the content (without the double quotes) of the string literal encoded in
-//! UTF-32 after the function returns.
-static const char* consume_utf32_str_body(const char* s, array* arr) {
+//! UTF-32 after the function returns. `error_msg` will contain an error message
+//! if the string literal contains invalid escape sequence.
+static const char* consume_utf32_str_body(const char* s, array* arr,
+                                          char** error_msg) {
   if (*s != '\"') {
     return NULL;
   }
@@ -682,6 +718,7 @@ static const char* consume_utf32_str_body(const char* s, array* arr) {
       // End of string literal.
       void* dst = array_push_back(arr);
       *(uint32_t*)dst = '\0';
+      ++s;
       return s;
     }
 
@@ -689,7 +726,7 @@ static const char* consume_utf32_str_body(const char* s, array* arr) {
       // Escape sequence.
       ++s;
       uint32_t c = 0;
-      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &c, CW_UTF32));
+      ASSIGN_OR_RETURN(s, consume_escape_sequence(s, &c, CW_UTF32, error_msg));
       void* dst = array_push_back(arr);
       *(uint32_t*)dst = c;
     } else {
@@ -706,57 +743,63 @@ static const char* consume_utf32_str_body(const char* s, array* arr) {
 bool lex_string_literal(const char* s, token* tok) {
   const char* start = s;
   array arr;
+  char* error_msg = NULL;
   // Handle prefixes.
   if (strncmp(s, "u8", 2) == 0) {
     // u8: 1 byte character, UTF-8
     s += 2;
-    s = consume_utf8_str_body(s, &arr);
+    s = consume_utf8_str_body(s, &arr, &error_msg);
   } else if (s[0] == 'u') {
     // u: 2 byte character, UTF-16
     ++s;
-    s = consume_utf16_str_body(s, &arr);
+    s = consume_utf16_str_body(s, &arr, &error_msg);
   } else if (s[0] == 'U' || s[0] == 'L') {
     // U, L: 4 byte character, UTF-32
     ++s;
-    s = consume_utf32_str_body(s, &arr);
+    s = consume_utf32_str_body(s, &arr, &error_msg);
   } else {
     // No prefix: 1 byte character, UTF-8
-    s = consume_utf8_str_body(s, &arr);
+    s = consume_utf8_str_body(s, &arr, &error_msg);
   }
 
   if (!s) {
     return false;
   }
-  // Skip the terminating double quote.
-  ++s;
   tok->token_type = TK_STRLIT;
   tok->constant.str_val = arr.buf;
   tok->loc = start;
   tok->size = s - start;
+  if (error_msg) {
+    error_tok_fmt(tok, error_msg);
+  }
   return true;
 }
 
-array lex(const char* s) {
+array lex(const char* s, const char* filename) {
   array tokens;
   array_init(&tokens, sizeof(token));
 
-  size_t line_num = 0;
-  size_t col_num = 0;
+  size_t line_num = 1;
+  size_t col_num = 1;
+  const char* line = s;
   while (*s) {
-    if (isspace(*s)) {
-      ++col_num;
-      ++s;
-      continue;
-    }
     if (*s == '\n') {
       ++line_num;
-      col_num = 0;
+      col_num = 1;
+      ++s;
+      line = s;
+      continue;
+    }
+    if (isspace(*s)) {
+      ++col_num;
       ++s;
       continue;
     }
 
     token* tok = array_push_back(&tokens);
     tok->token_type = TK_UNKNOWN;
+    tok->filename = filename;
+    tok->line = line;
     tok->line_num = line_num;
     tok->col_num = col_num;
 
@@ -779,9 +822,9 @@ array lex(const char* s) {
       res = lex_punctuator(s, tok);
     }
     if (!res) {
-      // TODO: Maybe give the token a size of 1 and TK_UNKNOWN type and let
-      // the parser worry about it.
-      error("[%zu:%zu] error: unknown token.", line_num, col_num);
+      // TODO: Maybe let the parser worry about it.
+      tok->size = 1;
+      error_tok_fmt(tok, "unexpected token.");
     }
     s = tok->loc + tok->size;
     col_num += tok->size;
@@ -790,6 +833,8 @@ array lex(const char* s) {
   // Inserts an EOF token at the end.
   token* tok = array_push_back(&tokens);
   tok->token_type = TK_EOF;
+  tok->filename = filename;
+  tok->line = line;
   tok->loc = "EOF";
   tok->line_num = line_num;
   tok->col_num = col_num;

@@ -10,7 +10,7 @@ void tearDown(void) {}
 
 void test_parser_basic(void) {
   char text[] = "int main(void) { return 2; }";
-  array tokens = lex(text);
+  array tokens = lex(text, "test.c");
   ast_node* ast = parse(&tokens);
   ast_destroy(ast);
   destroy_tokens(&tokens);
@@ -18,7 +18,7 @@ void test_parser_basic(void) {
 
 void test_parser_unary_expression(void) {
   char text[] = "int main(void){ return ++ + - (&foo)++--;}";
-  array tokens = lex(text);
+  array tokens = lex(text, "test.c");
   ast_node* ast = parse(&tokens);
   ast_node* root = ast;
   prettyprint_ast(ast);

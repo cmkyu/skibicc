@@ -20,7 +20,7 @@ void tearDown(void) {
 
 void test_codegen_basic(void) {
   char text[] = "int main(void){ return -2;}";
-  array tokens = lex(text);
+  array tokens = lex(text, "test.c");
   ast_node* ast = parse(&tokens);
   ir_node* ir = emit_ir(ast);
 

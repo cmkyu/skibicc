@@ -61,7 +61,7 @@ void test_lexer_basic(void) {
   char* buf = read_file("./test/data/lexer_test_1.txt");
   TEST_ASSERT_TRUE(buf);
 
-  array tokens = lex(buf);
+  array tokens = lex(buf, "./test/data/lexer_test_1.txt");
   array expected_tokens = get_expected_tokens();
   char* expected_texts[] = {"void",   "printf", "(",
                             "const",  "char",   "*",
@@ -100,7 +100,7 @@ void test_lexer_bootstrap(void) {
   // Can we lex our own main c file without crashing?
   char* buf = read_file("./test/data/lexer_test_2.txt");
   TEST_ASSERT_TRUE(buf);
-  array tokens = lex(buf);
+  array tokens = lex(buf, "./test/data/lexer_test_2.txt");
   free(buf);
   destroy_tokens(&tokens);
 }

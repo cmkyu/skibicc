@@ -174,7 +174,7 @@ static ast_node* parse_primary_expression(parser* parser) {
     return node;
   }
   // TODO: implement generic selection parsing.
-  error_tok(tok);
+  error_tok_fmt(tok, "unexpected token.");
   return NULL;
 }
 
