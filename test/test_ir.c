@@ -43,6 +43,7 @@ void test_ir_basic(void) {
   TEST_ASSERT_EQUAL_STRING("1_", inst->lhs->val.var_name);
 
   ir_destroy(ir);
+  ast_destroy(ast);
   destroy_tokens(&tokens);
 }
 

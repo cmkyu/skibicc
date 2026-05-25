@@ -394,3 +394,44 @@ ast_node* parse(array* tokens) {
 
   return parse_function_definition(&parser);
 }
+
+// Forward declarations.
+void ast_destroy(ast_node*);
+
+static void destroy_ast_expression(ast_expression* expr) {
+  ast_destroy(expr->lhs);
+  ast_destroy(expr->rhs);
+  free(expr->op);
+  free(expr);
+}
+
+static void destroy_ast_statement(ast_statement* stmt) {
+  ast_destroy(stmt->expression);
+  free(stmt);
+}
+
+static void destroy_ast_variable(ast_variable* var) { free(var); }
+
+static void destroy_ast_constant(ast_constant* constant) { free(constant); }
+
+void ast_destroy(ast_node* node) {
+  if (!node) {
+    return;
+  }
+
+  switch (node->node_type) {
+    case AST_EXPR:
+      destroy_ast_expression(node->node.expression);
+      break;
+    case AST_RETSTMNT:
+      destroy_ast_statement(node->node.statement);
+      break;
+    case AST_VAR:
+      destroy_ast_variable(node->node.variable);
+      break;
+    case AST_CONST:
+      destroy_ast_constant(node->node.consant);
+      break;
+  }
+  free(node);
+}

@@ -109,11 +109,19 @@ int main(int argc, char* argv[]) {
 
   array tokens = lex(text);
   if (opt == CO_LEX) {
-    goto end;
+    destroy_tokens(&tokens);
+    free(path);
+    free(text);
+    return 0;
   }
+
   ast_node* ast = parse(&tokens);
   if (opt == CO_PARSE) {
-    goto end;
+    ast_destroy(ast);
+    destroy_tokens(&tokens);
+    free(path);
+    free(text);
+    return 0;
   }
 
   replace_ext(&path, "s");
@@ -122,12 +130,13 @@ int main(int argc, char* argv[]) {
   emit(f, ir);
 
   ir_destroy(ir);
+  ast_destroy(ast);
+  destroy_tokens(&tokens);
   fclose(f);
 
   emit_code(path);
+
   remove(path);
-  // TODO: implement memory clean up for tokens and AST.
-end:
   free(path);
   free(text);
   return 0;

@@ -5,11 +5,10 @@
 #include "lexer.h"
 
 typedef enum ast_node_type {
-  AST_UNKNOWN,
   AST_EXPR,
+  AST_RETSTMNT,
   AST_VAR,
   AST_CONST,
-  AST_RETSTMNT,
 } ast_node_type;
 
 typedef struct ast_node ast_node;
@@ -83,5 +82,7 @@ typedef struct parser {
 } parser;
 
 ast_node* parse(array* tokens);
+
+void ast_destroy(ast_node* node);
 
 #endif  // SKIBICC_PARSER_H

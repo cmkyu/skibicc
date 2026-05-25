@@ -11,7 +11,8 @@ void tearDown(void) {}
 void test_parser_basic(void) {
   char text[] = "int main(void) { return 2; }";
   array tokens = lex(text);
-  parse(&tokens);
+  ast_node* ast = parse(&tokens);
+  ast_destroy(ast);
   destroy_tokens(&tokens);
 }
 
@@ -50,6 +51,7 @@ void test_parser_unary_expression(void) {
   ast = ast->node.expression->lhs;
   TEST_ASSERT_EQUAL(AST_VAR, ast->node_type);
 
+  ast_destroy(ast);
   destroy_tokens(&tokens);
 }
 
