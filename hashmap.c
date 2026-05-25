@@ -157,4 +157,5 @@ void hashmap_destroy(hashmap* map) {
     free(map->arr[i].key);
     free(map->arr[i].data);
   }
+  free(map->arr);
 }

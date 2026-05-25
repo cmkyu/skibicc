@@ -26,18 +26,17 @@ typedef enum compiler_option {
   CO_DEFAULT,
 } compiler_option;
 
-//! Runs GNU C preprocessor for file specified by `path`. `path` is replaced
-//! with the path to the output file (.i file) after execution finishes.
-static int run_preprocessor(char* path) {
-  char* path_copy = strdup(path);
-  replace_ext(&path, "i");
+//! Runs GNU C preprocessor for file specified by `path`. Returns the path to
+//! the preprocessed file. Returns NULL if preprocessor failed.
+static char* run_preprocessor(const char* path) {
+  char* out_path = strdup(path);
+  replace_ext(&out_path, "i");
 
-  // command: cpp -P path_copy -o out_path
-  char* command = string_concat(4, "cpp -P ", path_copy, " -o ", path);
+  // command: cpp -P path -o out_path
+  char* command = string_concat(4, "cpp -P ", path, " -o ", out_path);
   int res = system(command);
   free(command);
-  free(path_copy);
-  return res;
+  return res == 0 ? out_path : NULL;
 }
 
 //! Runs GNU assembler for file specified by `path`.
@@ -100,11 +99,14 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  char* path = strdup(argv[optind]);
-  if (run_preprocessor(path) != 0) {
+  char* path = run_preprocessor(argv[optind]);
+  if (!path) {
     return 1;
   }
   char* text = read_file(path);
+  if (!text) {
+    return 1;
+  }
   remove(path);
 
   array tokens = lex(text);

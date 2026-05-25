@@ -109,6 +109,8 @@ static void destroy_ir_val(ir_val* ir_val) {
 }
 
 static void destroy_ir_instruction(ir_instruction* ir_instruction) {
+  // Don't free the `ir_instruction` pointer here. It will be released
+  // when the array is destroyed.
   destroy_ir_val(ir_instruction->lhs);
   destroy_ir_val(ir_instruction->rhs);
   destroy_ir_val(ir_instruction->dst);
@@ -123,6 +125,7 @@ static void destroy_ir_func_def(ir_func_def* ir_func_def) {
   }
   array_destroy(instructions);
   free(instructions);
+  free(ir_func_def);
 }
 
 void ir_destroy(ir_node* ir_node) {
