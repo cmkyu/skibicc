@@ -390,7 +390,6 @@ ast_node* parse(array* tokens) {
   parser parser;
   parser.cur = 0;
   parser.tokens = tokens;
-  parser.ast = NULL;
 
   return parse_function_definition(&parser);
 }

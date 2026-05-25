@@ -73,7 +73,6 @@ static bool maybe_probe_and_insert(hashmap* map, const hashmap_entry* entry) {
     }
   }
   *arr_entry = *entry;
-  ++map->size;
   return true;
 }
 
@@ -106,7 +105,9 @@ bool hashmap_insert(hashmap* map, const hashmap_entry* entry) {
   if ((double)map->size / map->capacity >= LOAD_FACTOR) {
     rehash(map);
   }
-  return maybe_probe_and_insert(map, entry);
+  int res = maybe_probe_and_insert(map, entry);
+  ++map->size;
+  return res;
 }
 
 hashmap_entry* hashmap_get(hashmap* map, const void* key, size_t key_size) {
@@ -134,8 +135,12 @@ hashmap_entry hashmap_remove(hashmap* map, const void* key, size_t key_size) {
   // Remove the entry. This creates an empty slot.
   memcpy(&res, entry, sizeof(hashmap_entry));
   memset(entry, 0, sizeof(hashmap_entry));
+  --map->size;
 
   size_t index = entry - map->arr;
+  if (index + 1 >= map->capacity) {
+    return res;
+  }
   hashmap_entry* cur = entry + 1;
   // Move entry whose index (i.e., hash % capacity) is earlier than or equal to
   // the empty slot into the empty slot.

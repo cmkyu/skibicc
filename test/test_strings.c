@@ -8,25 +8,30 @@ void setUp(void) {}
 
 void tearDown(void) {}
 
-void test_string_concat(void) {
-  TEST_ASSERT_EQUAL_STRING("", string_concat(1, ""));
-  TEST_ASSERT_EQUAL_STRING("abc", string_concat(1, "abc"));
-  TEST_ASSERT_EQUAL_STRING("abc", string_concat(2, "abc", ""));
-  TEST_ASSERT_EQUAL_STRING("abcdef", string_concat(3, "abc", "d", "ef"));
+void verify_string_concat(const char* expected, char* actual) {
+  TEST_ASSERT_EQUAL_STRING(expected, actual);
+  free(actual);
+}
 
-  TEST_ASSERT_EQUAL_STRING("", string_concat(5, "", "", "", "", ""));
-  TEST_ASSERT_EQUAL_STRING("foobarbazFooBaz",
-                           string_concat(5, "foo", "bar", "baz", "Foo", "Baz"));
-  TEST_ASSERT_EQUAL_STRING(
+void test_string_concat(void) {
+  verify_string_concat("", string_concat(1, ""));
+  verify_string_concat("abc", string_concat(1, "abc"));
+  verify_string_concat("abc", string_concat(2, "abc", ""));
+  verify_string_concat("abcdef", string_concat(3, "abc", "d", "ef"));
+
+  verify_string_concat("", string_concat(5, "", "", "", "", ""));
+  verify_string_concat("foobarbazFooBaz",
+                       string_concat(5, "foo", "bar", "baz", "Foo", "Baz"));
+  verify_string_concat(
       "foobarbazFooBaz",
       string_concat(7, "foo", "bar", "", "baz", "Foo", "Baz", ""));
 
-  TEST_ASSERT_EQUAL_STRING(
+  verify_string_concat(
       "cpp -E myfile.c -o myfile.i",
       string_concat(5, "cpp ", "-E ", "myfile.c ", "-o ", "myfile.i"));
-  TEST_ASSERT_EQUAL_STRING("ld -o myfile /lib/crt0.o hello.o -lc",
-                           string_concat(6, "ld ", "-o ", "myfile ",
-                                         "/lib/crt0.o ", "hello.o ", "-lc"));
+  verify_string_concat("ld -o myfile /lib/crt0.o hello.o -lc",
+                       string_concat(6, "ld ", "-o ", "myfile ", "/lib/crt0.o ",
+                                     "hello.o ", "-lc"));
 }
 
 void test_replace_ext(void) {

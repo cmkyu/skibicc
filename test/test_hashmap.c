@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../hashmap.h"
 #include "../unity/unity.h"
@@ -23,6 +24,7 @@ void test_hashmap_simple(void) {
   };
 
   TEST_ASSERT_TRUE(hashmap_insert(&map, &entry));
+  TEST_ASSERT_EQUAL(1, map.size);
   hashmap_entry* res = hashmap_get(&map, key, sizeof(key));
   TEST_ASSERT_TRUE(res);
   TEST_ASSERT_EQUAL_STRING(key, res->key);
@@ -34,6 +36,7 @@ void test_hashmap_simple(void) {
   TEST_ASSERT_FALSE(res);
 
   entry = hashmap_remove(&map, "foo", 4);
+  TEST_ASSERT_EQUAL(0, map.size);
   TEST_ASSERT_EQUAL_STRING("foo", entry.key);
   TEST_ASSERT_EQUAL(4, entry.key_size);
   TEST_ASSERT_EQUAL_STRING("bar", entry.data);
@@ -47,6 +50,7 @@ void test_hashmap_simple(void) {
   TEST_ASSERT_EQUAL(0, entry.data);
   TEST_ASSERT_EQUAL(0, entry.data_size);
 
+  // Nothing to destroy. Shouldn't crash.
   hashmap_destroy(&map);
 }
 
@@ -68,17 +72,18 @@ void test_hashmap_stress(void) {
     bool* data = malloc(sizeof(bool));
     *data = true;
     hashmap_entry entry = {
-        .key = line,
+        .key = strdup(line),
         .key_size = read,
         .data = data,
         .data_size = sizeof(bool),
     };
     TEST_ASSERT_TRUE(hashmap_insert(&map, &entry));
-    line = NULL;
   }
+  TEST_ASSERT_EQUAL(466550, map.size);
+  free(line);
+  line = NULL;
 
   // Test get.
-  line = NULL;
   rewind(fp);
   while ((read = getline(&line, &len, fp)) != -1) {
     hashmap_entry* entry = hashmap_get(&map, line, read);
@@ -87,12 +92,11 @@ void test_hashmap_stress(void) {
     TEST_ASSERT_EQUAL(read, entry->key_size);
     TEST_ASSERT_TRUE(*(bool*)entry->data);
     TEST_ASSERT_EQUAL(sizeof(bool), entry->data_size);
-    free(line);
-    line = NULL;
   }
+  free(line);
+  line = NULL;
 
   // Test remove.
-  line = NULL;
   rewind(fp);
   size_t i = 0;
   // words.txt has >400K lines. Remove the first 400K from the hashmap.
@@ -114,9 +118,9 @@ void test_hashmap_stress(void) {
       TEST_ASSERT_TRUE(*(bool*)entry->data);
       TEST_ASSERT_EQUAL(sizeof(bool), entry->data_size);
     }
-    free(line);
-    line = NULL;
   }
+  free(line);
+  line = NULL;
   hashmap_destroy(&map);
   fclose(fp);
 }

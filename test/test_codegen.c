@@ -26,6 +26,8 @@ void test_codegen_basic(void) {
 
   emit(file, ir);
   ir_destroy(ir);
+  ast_destroy(ast);
+  destroy_tokens(&tokens);
 
   fseek(file, 0, SEEK_END);
   long fsize = ftell(file);

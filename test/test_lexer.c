@@ -73,6 +73,7 @@ static void verify_string(token* tok, const char* expected_str,
   TEST_ASSERT_EQUAL(TK_STRLIT, tok->token_type);
   TEST_ASSERT_EQUAL_STRING(expected, tok->constant.str_val);
   verify_tok_str(tok, expected_str);
+  free(tok->constant.str_val);
 }
 
 static void verify_utf8_string(token* tok, const char* expected_str,
@@ -80,6 +81,7 @@ static void verify_utf8_string(token* tok, const char* expected_str,
   TEST_ASSERT_EQUAL(TK_STRLIT, tok->token_type);
   TEST_ASSERT_EQUAL_STRING(expected, tok->constant.str_val);
   verify_tok_str(tok, expected_str);
+  free(tok->constant.str_val);
 }
 
 static void verify_utf16_string(token* tok, const char* expected_str,
@@ -87,6 +89,7 @@ static void verify_utf16_string(token* tok, const char* expected_str,
   TEST_ASSERT_EQUAL(TK_STRLIT, tok->token_type);
   TEST_ASSERT_EQUAL_STRING(expected, tok->constant.str_val);
   verify_tok_str(tok, expected_str);
+  free(tok->constant.str_val);
 }
 
 static void verify_utf32_string(token* tok, const char* expected_str,
@@ -94,6 +97,7 @@ static void verify_utf32_string(token* tok, const char* expected_str,
   TEST_ASSERT_EQUAL(TK_STRLIT, tok->token_type);
   TEST_ASSERT_EQUAL_STRING(expected, (const char32_t*)tok->constant.str_val);
   verify_tok_str(tok, expected_str);
+  free(tok->constant.str_val);
 }
 
 void test_lex_identifier(void) {

@@ -20,6 +20,7 @@ void test_parser_unary_expression(void) {
   char text[] = "int main(void){ return ++ + - (&foo)++--;}";
   array tokens = lex(text);
   ast_node* ast = parse(&tokens);
+  ast_node* root = ast;
   prettyprint_ast(ast);
 
   TEST_ASSERT_EQUAL(AST_RETSTMNT, ast->node_type);
@@ -51,7 +52,7 @@ void test_parser_unary_expression(void) {
   ast = ast->node.expression->lhs;
   TEST_ASSERT_EQUAL(AST_VAR, ast->node_type);
 
-  ast_destroy(ast);
+  ast_destroy(root);
   destroy_tokens(&tokens);
 }
 

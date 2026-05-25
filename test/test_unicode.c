@@ -67,6 +67,8 @@ void test_encode_utf32(void) {
   TEST_ASSERT_EQUAL(1, arr.size);
   uint32_t* actual = array_at(&arr, 0);
   TEST_ASSERT_EQUAL(0x1f813, *actual);
+
+  array_destroy(&arr);
 }
 
 int main(void) {

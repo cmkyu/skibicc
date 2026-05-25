@@ -78,7 +78,6 @@ struct ast_node {
 typedef struct parser {
   array* tokens;
   size_t cur;
-  ast_node* ast;
 } parser;
 
 ast_node* parse(array* tokens);
