@@ -776,6 +776,65 @@ bool lex_string_literal(const char* s, token* tok) {
   return true;
 }
 
+typedef struct lexer {
+  size_t line_num;
+  size_t col_num;
+  const char* filename;
+  const char* cur;
+  const char* line;
+  array tokens;
+  alert_queue* alert_queue;
+} lexer;
+
+lexer* lexer_init(const char* source, const char* filename) {
+  lexer* l = malloc_safe(sizeof(lexer));
+  array_init(&l->tokens, sizeof(token));
+
+  l->line_num = 1;
+  l->col_num = 1;
+  l->filename = filename;
+  l->cur = source;
+  l->line = source;
+  l->alert_queue = alert_queue_init();
+  return l;
+}
+
+token* lexer_create_token(lexer* l) {
+  token* tok = array_push_back(&l->tokens);
+  tok->token_type = TK_UNKNOWN;
+  tok->filename = l->filename;
+  tok->line = l->line;
+  tok->line_num = l->line_num;
+  tok->col_num = l->col_num;
+  return tok;
+}
+
+bool lexer_skip_whitespace(lexer* l) {
+  if (*l->cur == '\n') {
+    ++l->line_num;
+    l->col_num = 1;
+    ++l->cur;
+    l->line = l->cur;
+    return true;
+  }
+  if (isspace(*l->cur)) {
+    ++l->col_num;
+    ++l->cur;
+    return true;
+  }
+  return false;
+}
+
+void lexer_advance(lexer* l, token* tok) {
+  l->cur = tok->loc + tok->size;
+  l->col_num += tok->size;
+}
+
+void lexer_destroy(lexer* l) {
+  alert_queue_destroy(l->alert_queue);
+  free(l);
+}
+
 array lex(const char* s, const char* filename) {
   array tokens;
   array_init(&tokens, sizeof(token));

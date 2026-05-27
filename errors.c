@@ -29,8 +29,8 @@ typedef struct alert {
 } alert;
 
 alert_queue* alert_queue_init(void) {
-  alert_queue* q = malloc(sizeof(alert_queue));
-  q->queue = malloc(sizeof(array));
+  alert_queue* q = malloc_safe(sizeof(alert_queue));
+  q->queue = malloc_safe(sizeof(array));
   array_init(q->queue, sizeof(alert));
   return q;
 }
