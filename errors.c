@@ -47,14 +47,19 @@ static size_t get_num_digits(size_t num) {
 static void error_tok_footer(token* tok) {
   // Print the line number with the offending line.
   fprintf(stderr, "\t%zu |\t", tok->line_num);
+  bool reset = false;
   for (const char* s = tok->line; *s != '\0' && *s != '\n'; ++s) {
     if (s == tok->loc) {
       fprintf(stderr, COLOR_BOLD_RED);
     }
-    if (s == tok->loc + tok->size) {
+    if (s >= tok->loc + tok->size && !reset) {
       fprintf(stderr, COLOR_RESET);
+      reset = true;
     }
     fputc(*s, stderr);
+  }
+  if (!reset) {
+    fprintf(stderr, COLOR_RESET);
   }
   fputc('\n', stderr);
 

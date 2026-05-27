@@ -495,8 +495,8 @@ static bool is_char_prefix(char c) { return c == 'L' || c == 'u' || c == 'U'; }
 //! If `s` matches a wide character literal, that is, returns `s` after skipping
 //! the literal. Returns `NULL` if `s` is not a wide character literal. `dst`
 //! will contain the integer value of the wide character after the function
-//! returns. `error_msg` will contain an error message if `s` contains more than
-//! 1 character.
+//! returns. `error_msg` will contain an error message if `s` does not contain
+//! exactly 1 character or is unterminated.
 static const char* consume_wide_char_body(const char* s, uint32_t* dst,
                                           char** error_msg) {
   if (!(is_char_prefix(s[0]) && s[1] == '\'')) {
@@ -511,9 +511,10 @@ static const char* consume_wide_char_body(const char* s, uint32_t* dst,
   }
   s += 2;
 
-  if (*s == '\'' || *s == '\0' || *s == '\n') {
-    // Empty char body.
-    return NULL;
+  if (*s == '\'') {
+    ++s;
+    *error_msg = "character literal cannot be empty.";
+    return s;
   }
 
   if (*s == '\\') {
@@ -539,9 +540,8 @@ static const char* consume_wide_char_body(const char* s, uint32_t* dst,
     }
     ++s;
   }
-  // TODO: handle error messages for unterminated literals.
-  // Unterminated char literal.
-  return NULL;
+  *error_msg = "unterminated character literal.";
+  return s;
 }
 
 //! If `s` matches a wide character literal, that is, returns `s` after skipping
@@ -557,8 +557,9 @@ static const char* consume_char_body(const char* s, uint32_t* dst,
   }
   ++s;
   if (*s == '\'') {
-    // Empty char.
-    return NULL;
+    ++s;
+    *error_msg = "character literal cannot be empty.";
+    return s;
   }
 
   size_t len = 0;
@@ -591,8 +592,8 @@ static const char* consume_char_body(const char* s, uint32_t* dst,
     res = (res << 8) | c;
     ++len;
   }
-  // Unterminated string/char literal.
-  return NULL;
+  *error_msg = "unterminated character literal.";
+  return s;
 }
 
 bool lex_char_literal(const char* s, token* tok) {
@@ -656,8 +657,8 @@ static const char* consume_utf8_str_body(const char* s, array* arr,
     void* dst = array_push_back(arr);
     *(uint8_t*)dst = c;
   }
-  // Unterminated string literal.
-  return NULL;
+  *error_msg = "unterminated string literal.";
+  return s;
 }
 
 //! If `s` matches a string literal, returns `s` after skipping the string
@@ -696,8 +697,8 @@ static const char* consume_utf16_str_body(const char* s, array* arr,
       encode_utf16(c, arr);
     }
   }
-  // Unterminated string literal.
-  return NULL;
+  *error_msg = "unterminated string literal";
+  return s;
 }
 
 //! If `s` matches a string literal, returns `s` after skipping the string
@@ -736,8 +737,8 @@ static const char* consume_utf32_str_body(const char* s, array* arr,
       encode_utf32(c, arr);
     }
   }
-  // Unterminated string literal.
-  return NULL;
+  *error_msg = "unterminated string literal";
+  return s;
 }
 
 bool lex_string_literal(const char* s, token* tok) {
