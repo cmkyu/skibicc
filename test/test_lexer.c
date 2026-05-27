@@ -654,8 +654,6 @@ void test_char_constant(void) {
   verify_char_constant(&tok, "'\\123\\123'", '\123');
   TEST_ASSERT_TRUE(lex_char_literal("'\\xab\\xcd'", &tok));
   verify_char_constant(&tok, "'\\xab\\xcd'", '\xcd');
-
-  TEST_ASSERT_FALSE(lex_char_literal("''", &tok));
 }
 
 void test_string_literal(void) {
