@@ -376,14 +376,12 @@ static const char* consume_hex_escape_sequence(const char* s, uint32_t* dst,
     }
     ++s;
     ++len;
-    if (len > max_len) {
-      *error_msg = "hex escape sequence out of range.";
-    }
   }
   if (len == 0) {
     // No hex digits is an error.
-    // TODO: Make this error message nicer with file name, line:col number, etc.
     *error_msg = "\\x used with no following hex digits.";
+  } else if (len > max_len) {
+    *error_msg = "hex escape sequence out of range.";
   }
   *dst = c;
   return s;
@@ -776,17 +774,26 @@ bool lex_string_literal(const char* s, token* tok) {
   return true;
 }
 
+//! Internal states of the lexer.
 typedef struct lexer {
+  //! Current line number.
   size_t line_num;
+  //! Current column number.
   size_t col_num;
+  //! Filename of the source code file.
   const char* filename;
+  //! Pointer to the current character.
   const char* cur;
+  //! Pointer to the current line.
   const char* line;
+  //! Tokens produced by the lexer.
   array tokens;
+  //! Queue of compilation warnings and errors.
   alert_queue* alert_queue;
 } lexer;
 
-lexer* lexer_init(const char* source, const char* filename) {
+//! Creates the lexer given a `source` code buffer read from `filename`.
+static lexer* lexer_init(const char* source, const char* filename) {
   lexer* l = malloc_safe(sizeof(lexer));
   array_init(&l->tokens, sizeof(token));
 
@@ -799,7 +806,9 @@ lexer* lexer_init(const char* source, const char* filename) {
   return l;
 }
 
-token* lexer_create_token(lexer* l) {
+//! Adds a token to the back of the lexer token array and returns the added
+//! token. The caller is responsible for populating the token's type and value.
+static token* lexer_add_token(lexer* l) {
   token* tok = array_push_back(&l->tokens);
   tok->token_type = TK_UNKNOWN;
   tok->filename = l->filename;
@@ -809,7 +818,9 @@ token* lexer_create_token(lexer* l) {
   return tok;
 }
 
-bool lexer_skip_whitespace(lexer* l) {
+//! Skips the current character if it is a whitespace. Returns true if the
+//! character is skipped. Otherwise returns false.
+static bool lexer_skip_whitespace(lexer* l) {
   if (*l->cur == '\n') {
     ++l->line_num;
     l->col_num = 1;
@@ -825,79 +836,62 @@ bool lexer_skip_whitespace(lexer* l) {
   return false;
 }
 
-void lexer_advance(lexer* l, token* tok) {
+//! Adances the current character to just behind `tok`.
+static void lexer_advance(lexer* l, token* tok) {
   l->cur = tok->loc + tok->size;
   l->col_num += tok->size;
 }
 
-void lexer_destroy(lexer* l) {
+//! Frees the lexer, but keeps the token array intact. This is intentional so
+//! that the tokens can be processed by the next stage.
+static void lexer_destroy(lexer* l) {
   alert_queue_destroy(l->alert_queue);
   free(l);
 }
 
 array lex(const char* s, const char* filename) {
-  array tokens;
-  array_init(&tokens, sizeof(token));
-
-  size_t line_num = 1;
-  size_t col_num = 1;
-  const char* line = s;
-  while (*s) {
-    if (*s == '\n') {
-      ++line_num;
-      col_num = 1;
-      ++s;
-      line = s;
-      continue;
-    }
-    if (isspace(*s)) {
-      ++col_num;
-      ++s;
+  lexer* l = lexer_init(s, filename);
+  while (*l->cur) {
+    if (lexer_skip_whitespace(l)) {
       continue;
     }
 
-    token* tok = array_push_back(&tokens);
-    tok->token_type = TK_UNKNOWN;
-    tok->filename = filename;
-    tok->line = line;
-    tok->line_num = line_num;
-    tok->col_num = col_num;
-
+    token* tok = lexer_add_token(l);
     // Order is important here. String literals and constants must come before
     // identifiers and punctuators. This is because string literals and
     // constants may contain prefixes that qualify as identifiers or
     // punctuators.
     bool res = false;
-    res = lex_numeric_constant(s, tok);
+    res = lex_numeric_constant(l->cur, tok);
     if (!res) {
-      res = lex_char_literal(s, tok);
+      res = lex_char_literal(l->cur, tok);
     }
     if (!res) {
-      res = lex_string_literal(s, tok);
+      res = lex_string_literal(l->cur, tok);
     }
     if (!res) {
-      res = lex_identifier(s, tok);
+      res = lex_identifier(l->cur, tok);
     }
     if (!res) {
-      res = lex_punctuator(s, tok);
+      res = lex_punctuator(l->cur, tok);
     }
     if (!res) {
       // TODO: Maybe let the parser worry about it.
       tok->size = 1;
       error_tok_fmt(tok, "unexpected token.");
     }
-    s = tok->loc + tok->size;
-    col_num += tok->size;
+    lexer_advance(l, tok);
   }
 
   // Inserts an EOF token at the end.
-  token* tok = array_push_back(&tokens);
+  token* tok = lexer_add_token(l);
   tok->token_type = TK_EOF;
-  tok->filename = filename;
-  tok->line = line;
   tok->loc = "EOF";
-  tok->line_num = line_num;
-  tok->col_num = col_num;
+
+  // This is a cheap shallow copy.
+  array tokens = l->tokens;
+  // Lexer destructor does not destroy the token array, so this is fine.
+  lexer_destroy(l);
   return tokens;
 }
 
