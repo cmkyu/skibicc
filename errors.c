@@ -17,15 +17,22 @@
 #define COLOR_BOLD_YELLOW "\x1b[1;33m"
 #define COLOR_RESET "\x1b[0m"
 
+//! Types of alerts.
 typedef enum alert_type {
+  //! Compilation warning.
   ALERT_WARN,
+  //! Compilation error.
   ALERT_ERR,
 } alert_type;
 
+//! Represents an error or a warning message.
 typedef struct alert {
+  //! Type of the alert.
   alert_type alert_type;
+  //! The offending token.
   token* tok;
-  const char* alert_msg;
+  //! The alert messaage.
+  char* alert_msg;
 } alert;
 
 alert_queue* alert_queue_init(void) {
@@ -35,22 +42,52 @@ alert_queue* alert_queue_init(void) {
   return q;
 }
 
-void alert_queue_push_warning(alert_queue* q, token* tok,
-                              const char* warning_msg) {
+static char* fmt_to_msg(char* fmt, ...) {
+  char* msg;
+  size_t size;
+  FILE* f = open_memstream(&msg, &size);
+  if (!f) {
+    error("FATAL: open_memstream() failed.");
+  }
+
+  va_list args;
+  va_start(args, fmt);
+  fprintf(f, fmt, args);
+  fclose(f);
+  va_end(args);
+
+  return msg;
+}
+
+void alert_queue_push_warning(alert_queue* q, token* tok, char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  char* msg = fmt_to_msg(fmt, args);
+  va_end(args);
+
   alert* alert = array_push_back(q->queue);
   alert->alert_type = ALERT_WARN;
   alert->tok = tok;
-  alert->alert_msg = warning_msg;
+  alert->alert_msg = msg;
 }
 
-void alert_queue_push_error(alert_queue* q, token* tok, const char* error_msg) {
+void alert_queue_push_error(alert_queue* q, token* tok, char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  char* msg = fmt_to_msg(fmt, args);
+  va_end(args);
+
   alert* alert = array_push_back(q->queue);
   alert->alert_type = ALERT_ERR;
   alert->tok = tok;
-  alert->alert_msg = error_msg;
+  alert->alert_msg = msg;
 }
 
+// Forward declaration.
+static void error_tok_fmt_internal(token*, char*, ...);
+
 void alert_queue_report(alert_queue* q) {
+  bool has_error = false;
   for (size_t i = 0; i < q->queue->size; ++i) {
     alert* a = array_at(q->queue, i);
     switch (a->alert_type) {
@@ -58,9 +95,14 @@ void alert_queue_report(alert_queue* q) {
         warn_tok_fmt(a->tok, (char*)a->alert_msg);
         break;
       case ALERT_ERR:
-        error_tok_fmt(a->tok, (char*)a->alert_msg);
+        // Don't exit just yet.
+        error_tok_fmt_internal(a->tok, (char*)a->alert_msg);
+        has_error = true;
         break;
     }
+  }
+  if (has_error) {
+    exit(1);
   }
 }
 
@@ -74,6 +116,7 @@ void error(char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
   vfprintf(stderr, fmt, args);
+  va_end(args);
   fprintf(stderr, "\n");
   exit(1);
 }
@@ -150,13 +193,22 @@ static void tok_footer(token* tok, const char* color) {
   fputc('\n', stderr);
 }
 
-void error_tok_fmt(token* tok, char* fmt, ...) {
+//! Prints the actual error message without exiting the program.
+static void error_tok_fmt_internal(token* tok, char* fmt, ...) {
   error_tok_header(tok);
   va_list args;
   va_start(args, fmt);
   vfprintf(stderr, fmt, args);
+  va_end(args);
   fprintf(stderr, "\n");
   tok_footer(tok, COLOR_BOLD_RED);
+}
+
+void error_tok_fmt(token* tok, char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  error_tok_fmt_internal(tok, fmt, args);
+  va_end(args);
   exit(1);
 }
 
@@ -165,6 +217,7 @@ void warn_tok_fmt(token* tok, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
   vfprintf(stderr, fmt, args);
+  va_end(args);
   fprintf(stderr, "\n");
   tok_footer(tok, COLOR_BOLD_YELLOW);
 }

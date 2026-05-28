@@ -16,15 +16,16 @@ typedef struct alert_queue {
 //! Initializes the alert queue.
 alert_queue* alert_queue_init(void);
 
-//! Pushes a warning for token `tok` with `warning_msg` into the queue `q`.
-void alert_queue_push_warning(alert_queue* q, token* tok,
-                              const char* warning_msg);
+//! Pushes a warning for token `tok` with a warning message formatted by `fmt`
+//! into the queue `q`.
+void alert_queue_push_warning(alert_queue* q, token* tok, char* fmt, ...);
 
-//! Pushes an error for token `tok` with `error_msg` into the queue `q`.
-void alert_queue_push_error(alert_queue* q, token* tok, const char* error_msg);
+//! Pushes an error for token `tok` with an error message formatted by `fmt`
+//! into the queue `q`.
+void alert_queue_push_error(alert_queue* q, token* tok, char* fmt, ...);
 
-//! Prints all warnings and errors stored inside `q`. Note that the program will
-//! exits immediately after printing an error.
+//! Prints all warnings and errors stored inside `q`. If there are errors, exits
+//! the program after printing all messages.
 void alert_queue_report(alert_queue* q);
 
 //! Frees the alert queue.
