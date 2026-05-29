@@ -107,6 +107,10 @@ void alert_queue_report(alert_queue* q) {
 }
 
 void alert_queue_destroy(alert_queue* q) {
+  for (size_t i = 0; i < q->queue->size; ++i) {
+    char* msg = array_at(q->queue, i);
+    free(msg);
+  }
   array_destroy(q->queue);
   free(q->queue);
   free(q);
