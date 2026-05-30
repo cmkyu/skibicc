@@ -91,6 +91,9 @@ bool lex_numeric_constant(const char* s, token* tok);
 //! false, and `tok` is not changed.
 bool lex_punctuator(const char* s, token* tok);
 
+// Forward declarations
+struct alert_queue;
+
 //! Returns true if there is a character literal token starting at the character
 //! pointed to by `s`, and populates `tok` as an character literal. Otherwise
 //! returns false, and `tok` is not changed.
@@ -105,7 +108,7 @@ bool lex_punctuator(const char* s, token* tok);
 //! last 4 bytes will be kept.
 //! - Unsupported escape sequences will get translated into the character after
 //! the slash, so for example given '\o', it is translated into 'o'.
-bool lex_char_literal(const char* s, token* tok);
+bool lex_char_literal(const char* s, token* tok, struct alert_queue* alerts);
 
 //! Returns the length of the string literal starting at the character pointed
 //! to by `s`. Returns 0 if it is not a string literal.
@@ -114,6 +117,6 @@ bool lex_char_literal(const char* s, token* tok);
 //! 'L' prefix: UTF-32 string.
 //! - Unsupported escape sequences will get translated into the character after
 //! the slash, so for example given '\o', it is translated into 'o'.
-bool lex_string_literal(const char* s, token* tok);
+bool lex_string_literal(const char* s, token* tok, struct alert_queue* alerts);
 
 #endif  // SKIBICC_LEXER_H

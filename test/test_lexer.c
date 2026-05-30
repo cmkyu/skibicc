@@ -606,53 +606,58 @@ void test_char_constant(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
 
-  TEST_ASSERT_TRUE(lex_char_literal("'a'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'a'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'a'", 'a');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\a'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\a'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\a'", '\a');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\b'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\b'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\b'", '\b');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\e'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\e'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\e'", /* '\e' */ '\033');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\f'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\f'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\f'", '\f');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\n'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\n'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\n'", '\n');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\t'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\t'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\t'", '\t');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\v'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\v'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\v'", '\v');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\\\'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\\\'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\\\'", '\\');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\\''", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\\''", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\\''", '\'');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\\"'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\\"'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\\"'", '\"');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\?'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\?'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\?'", '\?');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\123'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\123'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\123'", '\123');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\xcf'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\xcf'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\xcf'", '\xcf');
 
-  TEST_ASSERT_TRUE(lex_char_literal("u'\\xcdef'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("u'\\xcdef'", &tok, /*alert_queue=*/NULL));
   verify_char16_constant(&tok, "u'\\xcdef'", u'\xcdef');
-  TEST_ASSERT_TRUE(lex_char_literal("u'\xe4\xb8\x96'", &tok));
+  TEST_ASSERT_TRUE(
+      lex_char_literal("u'\xe4\xb8\x96'", &tok, /*alert_queue=*/NULL));
   verify_char16_constant(&tok, "u'\xe4\xb8\x96'", u'世');
-  TEST_ASSERT_TRUE(lex_char_literal("U'\\xabcdef12'", &tok));
+  TEST_ASSERT_TRUE(
+      lex_char_literal("U'\\xabcdef12'", &tok, /*alert_queue=*/NULL));
   verify_char32_constant(&tok, "U'\\xabcdef12'", U'\xabcdef12');
-  TEST_ASSERT_TRUE(lex_char_literal("L'\\xa3456789'", &tok));
+  TEST_ASSERT_TRUE(
+      lex_char_literal("L'\\xa3456789'", &tok, /*alert_queue=*/NULL));
   verify_char32_constant(&tok, "L'\\xa3456789'", L'\xa3456789');
 
-  TEST_ASSERT_TRUE(lex_char_literal("'abc'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'abc'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'abc'", 'c');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\z'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\z'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\z'", 'z');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\z\\s\\u'", &tok));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\z\\s\\u'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\z\\s\\u'", 'u');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\123\\123'", &tok));
+  TEST_ASSERT_TRUE(
+      lex_char_literal("'\\123\\123'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\123\\123'", '\123');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\xab\\xcd'", &tok));
+  TEST_ASSERT_TRUE(
+      lex_char_literal("'\\xab\\xcd'", &tok, /*alert_queue=*/NULL));
   verify_char_constant(&tok, "'\\xab\\xcd'", '\xcd');
 }
 
@@ -660,45 +665,54 @@ void test_string_literal(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
 
-  TEST_ASSERT_TRUE(lex_string_literal("\"Hello, world!\"", &tok));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("\"Hello, world!\"", &tok, /*alert_queue=*/NULL));
   verify_string(&tok, "\"Hello, world!\"", "Hello, world!");
-  TEST_ASSERT_TRUE(lex_string_literal("\"He\\tllo, \\nworl\\fd!\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("\"He\\tllo, \\nworl\\fd!\"", &tok,
+                                      /*alert_queue=*/NULL));
   verify_string(&tok, "\"He\\tllo, \\nworl\\fd!\"", "He\tllo, \nworl\fd!");
-  TEST_ASSERT_TRUE(lex_string_literal("\"Hi\\123\\123Hi\"", &tok));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("\"Hi\\123\\123Hi\"", &tok, /*alert_queue=*/NULL));
   verify_string(&tok, "\"Hi\\123\\123Hi\"", "Hi\123\123Hi");
-  TEST_ASSERT_TRUE(lex_string_literal("u8\"Hello, world!\"", &tok));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("u8\"Hello, world!\"", &tok, /*alert_queue=*/NULL));
 
   // The cast is just to make compiler warnings happy. No real impacts.
   verify_utf8_string(&tok, "u8\"Hello, world!\"",
                      (const uint8_t*)u8"Hello, world!");
-  TEST_ASSERT_TRUE(lex_string_literal("u8\"\\xaa\\xabHi\"", &tok));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("u8\"\\xaa\\xabHi\"", &tok, /*alert_queue=*/NULL));
   verify_utf8_string(&tok, "u8\"\\xaa\\xabHi\"",
                      (const uint8_t*)u8"\xaa\xabHi");
 
-  TEST_ASSERT_TRUE(lex_string_literal("u\"Hi\\xaabb\\x12Hi\"", &tok));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("u\"Hi\\xaabb\\x12Hi\"", &tok, /*alert_queue=*/NULL));
   verify_utf16_string(&tok, "u\"Hi\\xaabb\\x12Hi\"", u"Hi\xaabb\x12Hi");
-  TEST_ASSERT_TRUE(lex_string_literal("u\"\xe4\xb8\x96\xe7\x95\x8c\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("u\"\xe4\xb8\x96\xe7\x95\x8c\"", &tok,
+                                      /*alert_queue=*/NULL));
   verify_utf16_string(&tok, "u\"\xe4\xb8\x96\xe7\x95\x8c\"", u"世界");
 
-  TEST_ASSERT_TRUE(lex_string_literal("U\"Hello\\xabcdef12\\x1235678\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("U\"Hello\\xabcdef12\\x1235678\"", &tok,
+                                      /*alert_queue=*/NULL));
   verify_utf32_string(&tok, "U\"Hello\\xabcdef12\\x1235678\"",
                       U"Hello\xabcdef12\x1235678");
-  TEST_ASSERT_TRUE(lex_string_literal("U\"\xe4\xb8\x96\xe7\x95\x8c\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("U\"\xe4\xb8\x96\xe7\x95\x8c\"", &tok,
+                                      /*alert_queue=*/NULL));
   verify_utf32_string(&tok, "U\"\xe4\xb8\x96\xe7\x95\x8c\"", U"世界");
-  TEST_ASSERT_TRUE(
-      lex_string_literal("L\"Hello\\xabcdef12\\x1234578world\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("L\"Hello\\xabcdef12\\x1234578world\"",
+                                      &tok, /*alert_queue=*/NULL));
   verify_utf32_string(&tok, "L\"Hello\\xabcdef12\\x1234578world\"",
                       (const uint32_t*)L"Hello\xabcdef12\x1234578world");
 
-  TEST_ASSERT_TRUE(lex_string_literal("\"\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("\"\"", &tok, /*alert_queue=*/NULL));
   verify_string(&tok, "\"\"", "");
-  TEST_ASSERT_TRUE(lex_string_literal("u8\"\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("u8\"\"", &tok, /*alert_queue=*/NULL));
   verify_string(&tok, "u8\"\"", "");
-  TEST_ASSERT_TRUE(lex_string_literal("u\"\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("u\"\"", &tok, /*alert_queue=*/NULL));
   verify_string(&tok, "u\"\"", "");
-  TEST_ASSERT_TRUE(lex_string_literal("U\"\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("U\"\"", &tok, /*alert_queue=*/NULL));
   verify_string(&tok, "U\"\"", "");
-  TEST_ASSERT_TRUE(lex_string_literal("L\"\"", &tok));
+  TEST_ASSERT_TRUE(lex_string_literal("L\"\"", &tok, /*alert_queue=*/NULL));
   verify_string(&tok, "L\"\"", "");
 }
 
