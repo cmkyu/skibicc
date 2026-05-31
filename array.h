@@ -30,6 +30,11 @@ void* array_at(array* arr, size_t index);
 //! inserted element.
 void* array_push_back(array* arr);
 
+//! Removes all elements of `arr` and sets its size to 0. Note that if elements
+//! point to dynamically allocated memory, its up to the caller to clean them
+//! up.
+void array_clear(array* arr);
+
 //! Destroys and frees the content of `arr`.
 void array_destroy(array* arr);
 

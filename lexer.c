@@ -419,8 +419,9 @@ static const char* consume_oct_escape_sequence(const char* s, uint32_t* dst,
 
 //! Given a character `c` which is the character after the slash ('\') in an
 //! character escape sequence, returns its corresponding escape character. For
-//! example, given 't', return '\t'.
-static char get_escape_char(char c) {
+//! example, given 't', return '\t'. If the escape character is not supported,
+//! `alerts` will contain a warning.
+static char get_escape_char(char c, token* tok, alert_queue* alerts) {
   switch (c) {
     case '\'':
       return '\'';
@@ -448,8 +449,8 @@ static char get_escape_char(char c) {
       // Non-standard '\e' character. Supported by GCC and clang.
       return '\033';
     default:
-      // TODO: make this warning message nicer.
-      fprintf(stderr, "warning: unknown escape sequence \\%c\n", c);
+      alert_queue_push_warning(alerts, tok, "unknown escape sequence '\\%c'.",
+                               c);
       return c;
   }
 }
@@ -486,7 +487,7 @@ static const char* consume_escape_sequence(const char* s, uint32_t* dst,
   }
   // No additional encoding is required because all escape characters are ASCII.
   // UTF-8, UTF-16, and UTF-32 are ASCII compatible.
-  *dst = get_escape_char(*s);
+  *dst = get_escape_char(*s, tok, alerts);
   return s + 1;
 }
 
@@ -547,11 +548,11 @@ static const char* consume_wide_char_body(const char* s, uint32_t* dst,
   return s;
 }
 
-//! If `s` matches a wide character literal, that is, returns `s` after skipping
-//! the literal. Returns `NULL` if `s` is not a character literal. `dst` will
-//! contain the integer value of the character literal after the function
-//! returns. Multi-character literals are supported, but only the last 4 bytes
-//! will be kept.
+//! If `s` matches a character literal, returns `s` after skipping the literal.
+//! Returns `NULL` if `s` is not a character literal. `dst` will contain the
+//! integer value of the character literal after the function returns.
+//! Multi-character literals are supported, but only the last 4 bytes will be
+//! kept.
 //!
 //! The following `alerts` are possible:
 //! The character literal has invalid escape sequence, is empty or is not
@@ -575,8 +576,7 @@ static const char* consume_char_body(const char* s, uint32_t* dst, token* tok,
   while (*s != '\0' && *s != '\n') {
     if (*s == '\'') {
       if (len > 1) {
-        // TODO: make this warning pretty.
-        fprintf(stderr, "warning: multi-character character constant\n");
+        alert_queue_push_warning(alerts, tok, "multi-byte character literal.");
       }
       // End of char literal.
       ++s;

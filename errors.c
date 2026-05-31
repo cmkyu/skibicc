@@ -42,20 +42,15 @@ alert_queue* alert_queue_init(void) {
   return q;
 }
 
-static char* fmt_to_msg(char* fmt, ...) {
+static char* fmt_to_msg(char* fmt, va_list args) {
   char* msg;
   size_t size;
   FILE* f = open_memstream(&msg, &size);
   if (!f) {
     error("FATAL: open_memstream() failed.");
   }
-
-  va_list args;
-  va_start(args, fmt);
-  fprintf(f, fmt, args);
+  vfprintf(f, fmt, args);
   fclose(f);
-  va_end(args);
-
   return msg;
 }
 
@@ -83,34 +78,34 @@ void alert_queue_push_error(alert_queue* q, token* tok, char* fmt, ...) {
   alert->alert_msg = msg;
 }
 
-// Forward declaration.
-static void error_tok_fmt_internal(token*, char*, ...);
+//! Frees all alert messages inside the queue.
+static void alert_queue_free_alerts(alert_queue* q) {
+  for (size_t i = 0; i < q->queue->size; ++i) {
+    alert* a = array_at(q->queue, i);
+    free(a->alert_msg);
+  }
+}
 
 void alert_queue_report(alert_queue* q) {
-  bool has_error = false;
   for (size_t i = 0; i < q->queue->size; ++i) {
     alert* a = array_at(q->queue, i);
     switch (a->alert_type) {
       case ALERT_WARN:
-        warn_tok_fmt(a->tok, (char*)a->alert_msg);
+        warn_tok_fmt(a->tok, "%s", (char*)a->alert_msg);
         break;
       case ALERT_ERR:
-        // Don't exit just yet.
-        error_tok_fmt_internal(a->tok, (char*)a->alert_msg);
-        has_error = true;
+        error_tok_fmt(a->tok, "%s", (char*)a->alert_msg);
         break;
     }
   }
-  if (has_error) {
-    exit(1);
-  }
+
+  alert_queue_free_alerts(q);
+  array_clear(q->queue);
+  return;
 }
 
 void alert_queue_destroy(alert_queue* q) {
-  for (size_t i = 0; i < q->queue->size; ++i) {
-    char* msg = array_at(q->queue, i);
-    free(msg);
-  }
+  alert_queue_free_alerts(q);
   array_destroy(q->queue);
   free(q->queue);
   free(q);
@@ -197,8 +192,7 @@ static void tok_footer(token* tok, const char* color) {
   fputc('\n', stderr);
 }
 
-//! Prints the actual error message without exiting the program.
-static void error_tok_fmt_internal(token* tok, char* fmt, ...) {
+void error_tok_fmt(token* tok, char* fmt, ...) {
   error_tok_header(tok);
   va_list args;
   va_start(args, fmt);
@@ -206,13 +200,6 @@ static void error_tok_fmt_internal(token* tok, char* fmt, ...) {
   va_end(args);
   fprintf(stderr, "\n");
   tok_footer(tok, COLOR_BOLD_RED);
-}
-
-void error_tok_fmt(token* tok, char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  error_tok_fmt_internal(tok, fmt, args);
-  va_end(args);
   exit(1);
 }
 

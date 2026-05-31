@@ -24,8 +24,8 @@ void alert_queue_push_warning(alert_queue* q, token* tok, char* fmt, ...);
 //! into the queue `q`.
 void alert_queue_push_error(alert_queue* q, token* tok, char* fmt, ...);
 
-//! Prints all warnings and errors stored inside `q`. If there are errors, exits
-//! the program after printing all messages.
+//! Prints all warnings and errors stored inside `q`. Clears the alert queue.
+//! After the first error message is printed (if any), exits the program.
 void alert_queue_report(alert_queue* q);
 
 //! Frees the alert queue.

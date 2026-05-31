@@ -38,4 +38,12 @@ void* array_push_back(array* arr) {
   return res;
 }
 
+void array_clear(array* arr) {
+  if (arr->size == 0) {
+    return;
+  }
+  memset(arr->buf, 0, arr->size * arr->item_size);
+  arr->size = 0;
+}
+
 void array_destroy(array* arr) { free(arr->buf); }
