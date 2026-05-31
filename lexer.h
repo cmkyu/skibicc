@@ -72,6 +72,9 @@ void destroy_tokens(array* tokens);
 
 // ------------ Exposed for testing only ------------
 
+// Forward declarations
+struct alert_queue;
+
 //! Returns true if there is an identifier token starting at the character
 //! pointed to by `s`, and populates `tok` as an identifier. Otherwise returns
 //! false, and `tok` is not changed.
@@ -84,15 +87,13 @@ bool is_keyword(const char* s, size_t len);
 //! Returns true if there is a numerical constant (integer and float) token
 //! starting at the character pointed to by `s`, and populates `tok` as an
 //! numerica constant. Otherwise returns false, and `tok` is not changed.
-bool lex_numeric_constant(const char* s, token* tok);
+bool lex_numeric_constant(const char* s, token* tok,
+                          struct alert_queue* alerts);
 
 //! Returns true if there is a punctuator token starting at the character
 //! pointed to by `s`, and populates `tok` as an punctuator. Otherwise returns
 //! false, and `tok` is not changed.
 bool lex_punctuator(const char* s, token* tok);
-
-// Forward declarations
-struct alert_queue;
 
 //! Returns true if there is a character literal token starting at the character
 //! pointed to by `s`, and populates `tok` as an character literal. Otherwise

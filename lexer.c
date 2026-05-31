@@ -125,83 +125,120 @@ static char* INT_SUFFIXES[] = {
 static const size_t INT_SUFFIXES_SIZE =
     sizeof(INT_SUFFIXES) / sizeof(INT_SUFFIXES[0]);
 
-//! If `s` matches any integer suffixes, returns `s` after skipping the suffix.
-//! If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
-//! returns `NULL`.
+//! Assuming `cur` points to an invalid integer/float suffix, modifies `cur`
+//! such that it skips over the bad suffix, i.e., all word characters (\w+) and
+//! returns a copy of the bad suffix. The caller is responsible for freeing the
+//! returned suffix.
+static char* get_bad_suffix(const char** cur) {
+  const char* s = *cur;
+  const char* bad_suffix_start = s;
+  size_t size = 0;
+  while (is_word_char(*s)) {
+    ++s;
+    ++size;
+  }
+  char* bad_suffix = strndup(bad_suffix_start, size);
+  *cur = s;
+  return bad_suffix;
+}
+
+//! If `*cur` matches any integer suffixes, modifies `cur` such that it skips
+//! the suffix and returns true. If the suffix is invalid, returns false and
+//! `alerts` will contain an error.
 //!
 //! Examples:
 //! - Valid suffix: 1234ull;
 //! - No suffix at all: 1234;
 //! - Invalid suffix: 1234ulla (integer must end at word boundary, i.e.,
 //! must be followed by a character for whom is_word_char() is false)
-static const char* consume_int_suffix(const char* s) {
+static bool consume_int_suffix(const char** cur, token* tok,
+                               alert_queue* alerts) {
+  const char* s = *cur;
+  const char* suffix_cur = s;
   char c = tolower(*s);
-  if (c != 'u' && c != 'l') {
-    // Integer must end at word boundary.
-    return is_word_char(*s) ? NULL : s;
-  }
-
-  for (size_t i = 0; i < INT_SUFFIXES_SIZE; ++i) {
-    char* suffix = INT_SUFFIXES[i];
-    size_t len = strlen(suffix);
-    if (strncmp(suffix, s, len) == 0) {
-      s += len;
-      break;
+  if (c == 'u' || c == 'l') {
+    for (size_t i = 0; i < INT_SUFFIXES_SIZE; ++i) {
+      char* suffix = INT_SUFFIXES[i];
+      size_t len = strlen(suffix);
+      if (strncmp(suffix, s, len) == 0) {
+        s += len;
+        break;
+      }
     }
   }
-  // Integer must end at word boundary.
-  return is_word_char(*s) ? NULL : s;
+
+  if (!is_word_char(*s)) {
+    *cur = s;
+    return true;
+  }
+
+  char* bad_suffix = get_bad_suffix(&suffix_cur);
+  alert_queue_push_error(alerts, tok, "invalid suffix '%s' on integer constant",
+                         bad_suffix);
+  free(bad_suffix);
+  *cur = suffix_cur;
+  return false;
 }
 
 //! Returns true if `c` is the character 'p' or 'P'. Otherwise returns false.
 static bool is_hex_exp_char(char c) { return tolower(c) == 'p'; }
 
-//! If `s` matches the exponent part (excluding the 'e'/'p') of a decimal/hex
-//! float, return `s` after skipping the exponent part. Returns `NULL` if it is
-//! not an exponent part.
-static const char* consume_exponent(const char* s) {
+//! If `*cur` matches the exponent part (excluding the 'e'/'p') of a decimal/hex
+//! float, modifies `cur` such that it skips the exponent part and returns true.
+//! If the exponent has no digits, returns false and `alerts` will contain an
+//! error.
+static bool consume_exponent(const char** cur, token* tok,
+                             alert_queue* alerts) {
+  const char* s = *cur;
   if (*s == '+' || *s == '-') {
     ++s;
   }
-  if (!isdigit(*s)) {
-    return NULL;
-  }
+  bool has_digit = false;
   while (isdigit(*s)) {
+    has_digit = true;
     ++s;
   }
-  return s;
+  *cur = s;
+  if (!has_digit) {
+    alert_queue_push_error(alerts, tok, "exponent has no digits");
+  }
+  return has_digit;
 }
 
-//! If `s` matches any float suffixes, returns `s` after skipping the suffix.
-//! If there is no suffix at all, returns `s` as-is. If the suffix is invalid,
-//! returns `NULL`.
+//! If `*cur` matches any float suffixes, modifies `cur` such that it skips the
+//! suffix and returns true. If the suffix is invalid, returns false and
+//! `alerts` will contain an error.
 //!
 //! Examples:
 //! - Valid suffix: 12.34f;
 //! - No suffix at all: 12.34;
 //! - Invalid suffix: 12.34fa (float must end at word boundary, i.e., must be
 //! followed by a character for whom is_word_char() is false)
-static const char* consume_float_suffix(const char* s) {
+static bool consume_float_suffix(const char** cur, token* tok,
+                                 alert_queue* alerts) {
+  const char* s = *cur;
+  const char* suffix_cur = s;
   char c = tolower(*s);
   if (c == 'f' || c == 'l') {
     ++s;
   }
-  return is_word_char(*s) ? NULL : s;
+  if (!is_word_char(*s)) {
+    *cur = s;
+    return true;
+  }
+
+  char* bad_suffix = get_bad_suffix(&suffix_cur);
+  alert_queue_push_error(
+      alerts, tok, "invalid suffix '%s' on floating constant", bad_suffix);
+  free(bad_suffix);
+  *cur = suffix_cur;
+  return false;
 }
 
-//! Assigns the value of `exp` to `x`. If `exp` evaluates to NULL, returns NULL.
-#define ASSIGN_OR_RETURN(x, exp) \
-  do {                           \
-    x = exp;                     \
-    if (!x) {                    \
-      return NULL;               \
-    }                            \
-  } while (0)
-
 //! If `s` matches a hex integer or float, returns `s` after skipping the hex
-//! number. Returns `NULL` if `s` is not a valid hex number. It is assumed that
-//! `s` starts with a valid hex prefix "0x" or "0X".
-static const char* consume_hex(const char* s, token* tok) {
+//! number. `alerts` will contain an error if `s` is not a valid hex number. It
+//! is assumed that `s` starts with a valid hex prefix "0x" or "0X".
+static const char* consume_hex(const char* s, token* tok, alert_queue* alerts) {
   const char* start = s;
   s += 2;
   if (!isxdigit(*s) && *s != '.') {
@@ -216,7 +253,9 @@ static const char* consume_hex(const char* s, token* tok) {
   }
   if (*s != '.' && !is_hex_exp_char(*s)) {
     // Integer
-    ASSIGN_OR_RETURN(s, consume_int_suffix(s));
+    if (!consume_int_suffix(&s, tok, alerts)) {
+      return s;
+    }
     tok->token_type = TK_ICONST;
     // TODO: check for overflow by comparing str_end with s before
     // consume_int_suffix.
@@ -232,11 +271,17 @@ static const char* consume_hex(const char* s, token* tok) {
   }
   // Hex float requires an exponent.
   if (!is_hex_exp_char(*s)) {
-    return NULL;
+    alert_queue_push_error(
+        alerts, tok, "hexadecimal floating constant requires an exponent.");
+    return s;
   }
   ++s;  // Skip the exponent character.
-  ASSIGN_OR_RETURN(s, consume_exponent(s));
-  ASSIGN_OR_RETURN(s, consume_float_suffix(s));
+  if (!consume_exponent(&s, tok, alerts)) {
+    return s;
+  }
+  if (!consume_float_suffix(&s, tok, alerts)) {
+    return s;
+  }
   tok->token_type = TK_FCONST;
   tok->constant.float_val = strtold(start, NULL);
   return s;
@@ -251,7 +296,8 @@ static bool is_dec_exp_char(char c) { return tolower(c) == 'e'; }
 //! If `s` matches a decimal integer, a decimal float or an octal integer,
 //! returns `s` after skipping the number. Returns `NULL` if `s` is not a valid
 //! number.
-static const char* consume_dec_or_oct(const char* s, token* tok) {
+static const char* consume_dec_or_oct(const char* s, token* tok,
+                                      alert_queue* alerts) {
   if (!isdigit(*s) && *s != '.') {
     return NULL;
   }
@@ -261,17 +307,25 @@ static const char* consume_dec_or_oct(const char* s, token* tok) {
 
   const char* start = s;
   bool has_invalid_oct = false;
+  char invalid_oct;
   while (isdigit(*s)) {
-    has_invalid_oct |= !is_oct_digit(*s);
+    if (!has_invalid_oct && !is_oct_digit(*s)) {
+      has_invalid_oct = true;
+      invalid_oct = *s;
+    }
     ++s;
   }
   if (*s != '.' && !is_dec_exp_char(*s)) {
     // Decimal or octal integer
     bool is_oct = *start == '0';
     if (is_oct && has_invalid_oct) {
-      return NULL;
+      alert_queue_push_error(
+          alerts, tok, "invalid digit '%c' in octal constant", invalid_oct);
+      return s;
     }
-    ASSIGN_OR_RETURN(s, consume_int_suffix(s));
+    if (!consume_int_suffix(&s, tok, alerts)) {
+      return s;
+    }
     tok->token_type = TK_ICONST;
     tok->constant.int_val = strtoull(start, NULL, /*__base=*/is_oct ? 8 : 10);
     return s;
@@ -285,20 +339,24 @@ static const char* consume_dec_or_oct(const char* s, token* tok) {
   }
   if (is_dec_exp_char(*s)) {
     ++s;
-    ASSIGN_OR_RETURN(s, consume_exponent(s));
+    if (!consume_exponent(&s, tok, alerts)) {
+      return s;
+    }
   }
-  ASSIGN_OR_RETURN(s, consume_float_suffix(s));
+  if (!consume_float_suffix(&s, tok, alerts)) {
+    return s;
+  }
   tok->token_type = TK_FCONST;
   tok->constant.float_val = strtold(start, NULL);
   return s;
 }
 
-bool lex_numeric_constant(const char* s, token* tok) {
+bool lex_numeric_constant(const char* s, token* tok, alert_queue* alerts) {
   const char* start = s;
   if (s[0] == '0' && tolower(s[1]) == 'x') {
-    s = consume_hex(s, tok);
+    s = consume_hex(s, tok, alerts);
   } else {
-    s = consume_dec_or_oct(s, tok);
+    s = consume_dec_or_oct(s, tok, alerts);
   }
   if (!s) {
     return false;
@@ -521,8 +579,7 @@ static const char* consume_wide_char_body(const char* s, uint32_t* dst,
 
   if (*s == '\\') {
     ++s;
-    ASSIGN_OR_RETURN(s,
-                     consume_escape_sequence(s, dst, char_width, tok, alerts));
+    s = consume_escape_sequence(s, dst, char_width, tok, alerts);
   } else {
     s = decode_utf8(s, dst);
   }
@@ -589,8 +646,7 @@ static const char* consume_char_body(const char* s, uint32_t* dst, token* tok,
       // Escape sequence.
       ++s;
       uint32_t escape = 0;
-      ASSIGN_OR_RETURN(
-          s, consume_escape_sequence(s, &escape, CW_UTF8, tok, alerts));
+      s = consume_escape_sequence(s, &escape, CW_UTF8, tok, alerts);
       c = (uint8_t)escape;
     } else {
       // Regular character.
@@ -648,8 +704,7 @@ static const char* consume_utf8_str_body(const char* s, array* arr, token* tok,
       // Escape sequence.
       ++s;
       uint32_t escape = 0;
-      ASSIGN_OR_RETURN(
-          s, consume_escape_sequence(s, &escape, CW_UTF8, tok, alerts));
+      s = consume_escape_sequence(s, &escape, CW_UTF8, tok, alerts);
       c = (uint8_t)escape;
     } else {
       // Regular character. No transcoding needed since we assume the source
@@ -691,8 +746,7 @@ static const char* consume_utf16_str_body(const char* s, array* arr, token* tok,
       // Escape sequence.
       ++s;
       uint32_t c = 0;
-      ASSIGN_OR_RETURN(s,
-                       consume_escape_sequence(s, &c, CW_UTF16, tok, alerts));
+      s = consume_escape_sequence(s, &c, CW_UTF16, tok, alerts);
       void* dst = array_push_back(arr);
       *(uint16_t*)dst = (uint16_t)c;
     } else {
@@ -732,8 +786,7 @@ static const char* consume_utf32_str_body(const char* s, array* arr, token* tok,
       // Escape sequence.
       ++s;
       uint32_t c = 0;
-      ASSIGN_OR_RETURN(s,
-                       consume_escape_sequence(s, &c, CW_UTF32, tok, alerts));
+      s = consume_escape_sequence(s, &c, CW_UTF32, tok, alerts);
       void* dst = array_push_back(arr);
       *(uint32_t*)dst = c;
     } else {
@@ -866,7 +919,7 @@ array lex(const char* s, const char* filename) {
     // constants may contain prefixes that qualify as identifiers or
     // punctuators.
     bool res = false;
-    res = lex_numeric_constant(l->cur, tok);
+    res = lex_numeric_constant(l->cur, tok, l->alert_queue);
     if (!res) {
       res = lex_char_literal(l->cur, tok, l->alert_queue);
     }
@@ -885,6 +938,7 @@ array lex(const char* s, const char* filename) {
       alert_queue_push_error(l->alert_queue, tok, "unexpected token.");
     }
     alert_queue_report(l->alert_queue);
+    alert_queue_clear(l->alert_queue);
     lexer_advance(l, tok);
   }
 

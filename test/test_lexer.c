@@ -5,6 +5,7 @@
 
 #include "../lexer.h"
 #include "../unity/unity.h"
+#include "errors.h"
 
 void setUp(void) {}
 
@@ -100,6 +101,11 @@ static void verify_utf32_string(token* tok, const char* expected_str,
   free(tok->constant.str_val);
 }
 
+static void verify_has_alerts(alert_queue* alerts) {
+  TEST_ASSERT_GREATER_OR_EQUAL(1, alerts->queue->size);
+  alert_queue_clear(alerts);
+}
+
 void test_lex_identifier(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
@@ -164,56 +170,65 @@ void test_lex_identifier(void) {
 void test_lex_decimal_integer(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
+  alert_queue* alerts = alert_queue_init();
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("234", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("234", &tok, alerts));
   verify_integer_constant(&tok, "234", 234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("90283746512379567", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("90283746512379567", &tok, alerts));
   verify_integer_constant(&tok, "90283746512379567", 90283746512379567);
-  TEST_ASSERT_TRUE(lex_numeric_constant("234;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("234;", &tok, alerts));
   verify_integer_constant(&tok, "234", 234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("123)", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("123)", &tok, alerts));
   verify_integer_constant(&tok, "123", 123);
-  TEST_ASSERT_TRUE(lex_numeric_constant("456/123", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("456/123", &tok, alerts));
   verify_integer_constant(&tok, "456", 456);
-  TEST_ASSERT_TRUE(lex_numeric_constant("567+456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("567+456", &tok, alerts));
   verify_integer_constant(&tok, "567", 567);
-  TEST_ASSERT_TRUE(lex_numeric_constant("789-456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("789-456", &tok, alerts));
   verify_integer_constant(&tok, "789", 789);
-  TEST_ASSERT_TRUE(lex_numeric_constant("123*456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("123*456", &tok, alerts));
   verify_integer_constant(&tok, "123", 123);
-  TEST_ASSERT_TRUE(lex_numeric_constant("567,456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("567,456", &tok, alerts));
   verify_integer_constant(&tok, "567", 567);
 
-  TEST_ASSERT_FALSE(lex_numeric_constant("", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant(";123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("foobar123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("123foobar", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("__123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("__123__", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("thisdoes123notcount", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant(";123", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("foobar123", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("__123", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("__123__", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("thisdoes123notcount", &tok, alerts));
 
-  TEST_ASSERT_FALSE(lex_numeric_constant("ull", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("ull123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("123ull123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("123ullull", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("123ullthisdoesnotcount", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("ull", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("ull123", &tok, alerts));
+  TEST_ASSERT_TRUE(lex_numeric_constant("123ull123", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("123ullull", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("123foobar", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(
+      lex_numeric_constant("123ullthisdoesnotcount", &tok, alerts));
+  verify_has_alerts(alerts);
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("674u", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("674u", &tok, alerts));
   verify_integer_constant(&tok, "674u", 674);
-  TEST_ASSERT_TRUE(lex_numeric_constant("1937Ull", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("1937Ull", &tok, alerts));
   verify_integer_constant(&tok, "1937Ull", 1937);
-  TEST_ASSERT_TRUE(lex_numeric_constant("67489LL", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("67489LL", &tok, alerts));
   verify_integer_constant(&tok, "67489LL", 67489);
-  TEST_ASSERT_TRUE(lex_numeric_constant("2937ul", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("2937ul", &tok, alerts));
   verify_integer_constant(&tok, "2937ul", 2937);
-  TEST_ASSERT_TRUE(lex_numeric_constant("1937LLu", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("1937LLu", &tok, alerts));
   verify_integer_constant(&tok, "1937LLu", 1937);
-  TEST_ASSERT_TRUE(lex_numeric_constant("2937Lu", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("2937Lu", &tok, alerts));
   verify_integer_constant(&tok, "2937Lu", 2937);
-  TEST_ASSERT_TRUE(lex_numeric_constant("1937ull;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("1937ull;", &tok, alerts));
   verify_integer_constant(&tok, "1937ull", 1937);
-  TEST_ASSERT_TRUE(lex_numeric_constant("2937lu;thisdoesnotcount", &tok));
+  TEST_ASSERT_TRUE(
+      lex_numeric_constant("2937lu;thisdoesnotcount", &tok, alerts));
   verify_integer_constant(&tok, "2937lu", 2937);
+
+  alert_queue_destroy(alerts);
 }
 
 void test_lex_octal_integer(void) {

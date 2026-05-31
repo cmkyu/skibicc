@@ -98,10 +98,11 @@ void alert_queue_report(alert_queue* q) {
         break;
     }
   }
+}
 
+void alert_queue_clear(alert_queue* q) {
   alert_queue_free_alerts(q);
   array_clear(q->queue);
-  return;
 }
 
 void alert_queue_destroy(alert_queue* q) {
