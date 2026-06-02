@@ -234,306 +234,360 @@ void test_lex_decimal_integer(void) {
 void test_lex_octal_integer(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
+  alert_queue* alerts = alert_queue_init();
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("0", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0", &tok, alerts));
   verify_integer_constant(&tok, "0", 0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0000", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0000", &tok, alerts));
   verify_integer_constant(&tok, "0000", 0000);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0234", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0234", &tok, alerts));
   verify_integer_constant(&tok, "0234", 0234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0027374651237567", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0027374651237567", &tok, alerts));
   verify_integer_constant(&tok, "0027374651237567", 0027374651237567);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0234;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0234;", &tok, alerts));
   verify_integer_constant(&tok, "0234", 0234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0456)", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0456)", &tok, alerts));
   verify_integer_constant(&tok, "0456", 0456);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0234/123", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0234/123", &tok, alerts));
   verify_integer_constant(&tok, "0234", 0234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0567+456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0567+456", &tok, alerts));
   verify_integer_constant(&tok, "0567", 0567);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0234-456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0234-456", &tok, alerts));
   verify_integer_constant(&tok, "0234", 0234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0567*456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0567*456", &tok, alerts));
   verify_integer_constant(&tok, "0567", 0567);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0234,456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0234,456", &tok, alerts));
   verify_integer_constant(&tok, "0234", 0234);
 
-  TEST_ASSERT_FALSE(lex_numeric_constant(";0123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("foobar0123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0123foobar", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("__0123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("__0123__", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("thisdoes0123notcount", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant(";0123", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("foobar0123", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("__0123", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("__0123__", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("thisdoes0123notcount", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("ull0123", &tok, alerts));
 
-  TEST_ASSERT_FALSE(lex_numeric_constant("01239", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0123977ul", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("01239", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0123977ul", &tok, alerts));
+  verify_has_alerts(alerts);
 
-  TEST_ASSERT_FALSE(lex_numeric_constant("ull0123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0123ull123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0123ullull", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0123ullthisdoesnotcount", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0123foobar", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0123ull123", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0123ullull", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(
+      lex_numeric_constant("0123ullthisdoesnotcount", &tok, alerts));
+  verify_has_alerts(alerts);
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("0674u", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0674u", &tok, alerts));
   verify_integer_constant(&tok, "0674u", 0674);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0137Ull", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0137Ull", &tok, alerts));
   verify_integer_constant(&tok, "0137Ull", 0137);
-  TEST_ASSERT_TRUE(lex_numeric_constant("06747LL", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("06747LL", &tok, alerts));
   verify_integer_constant(&tok, "06747LL", 06747);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0237ul", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0237ul", &tok, alerts));
   verify_integer_constant(&tok, "0237ul", 0237);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0137LLu", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0137LLu", &tok, alerts));
   verify_integer_constant(&tok, "0137LLu", 0137);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0237Lu", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0237Lu", &tok, alerts));
   verify_integer_constant(&tok, "0237Lu", 0237);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0137U;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0137U;", &tok, alerts));
   verify_integer_constant(&tok, "0137U", 0137);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0237ULL;thisdoesnotcount", &tok));
+  TEST_ASSERT_TRUE(
+      lex_numeric_constant("0237ULL;thisdoesnotcount", &tok, alerts));
   verify_integer_constant(&tok, "0237ULL", 0237);
+
+  alert_queue_destroy(alerts);
 }
 
 void test_lex_hex_integer(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
+  alert_queue* alerts = alert_queue_init();
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x0", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x0", &tok, alerts));
   verify_integer_constant(&tok, "0x0", 0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0X0", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X0", &tok, alerts));
   verify_integer_constant(&tok, "0X0", 0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x0000", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x0000", &tok, alerts));
   verify_integer_constant(&tok, "0x0000", 0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0xe", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xe", &tok, alerts));
   verify_integer_constant(&tok, "0xe", 0xe);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0xf", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xf", &tok, alerts));
   verify_integer_constant(&tok, "0xf", 0xf);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x123", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x123", &tok, alerts));
   verify_integer_constant(&tok, "0x123", 0x123);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0X456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X456", &tok, alerts));
   verify_integer_constant(&tok, "0X456", 0x456);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x000456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x000456", &tok, alerts));
   verify_integer_constant(&tok, "0x000456", 0x456);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x1A2b3C8d9e0f", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1A2b3C8d9e0f", &tok, alerts));
   verify_integer_constant(&tok, "0x1A2b3C8d9e0f", 0x1a2b3c8d9e0f);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0Xa8B3e9d0F", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0Xa8B3e9d0F", &tok, alerts));
   verify_integer_constant(&tok, "0Xa8B3e9d0F", 0xa8b3e9d0f);
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x234;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x234;", &tok, alerts));
   verify_integer_constant(&tok, "0x234", 0x234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x123)", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x123)", &tok, alerts));
   verify_integer_constant(&tok, "0x123", 0x123);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x456/123", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x456/123", &tok, alerts));
   verify_integer_constant(&tok, "0x456", 0x456);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0xabc+456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xabc+456", &tok, alerts));
   verify_integer_constant(&tok, "0xabc", 0xabc);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0xdef-456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xdef-456", &tok, alerts));
   verify_integer_constant(&tok, "0xdef", 0xdef);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x123*456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x123*456", &tok, alerts));
   verify_integer_constant(&tok, "0x123", 0x123);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x345,456", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x345,456", &tok, alerts));
   verify_integer_constant(&tok, "0x345", 0x345);
 
-  TEST_ASSERT_FALSE(lex_numeric_constant(";0x123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("foobar0x123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x123foobar", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("__0x123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("__0x123__", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("thisdoes0x0123notcount", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant(";0x123", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("foobar0x123", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("__0x123", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("__0x123__", &tok, alerts));
+  TEST_ASSERT_FALSE(
+      lex_numeric_constant("thisdoes0x0123notcount", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("ull0x123", &tok, alerts));
 
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0X", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0xu", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0Xull", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0X12340x", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x1234g", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x37d82ag73f", &tok));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0X", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0xu", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0Xull", &tok, alerts));
 
-  TEST_ASSERT_FALSE(lex_numeric_constant("ull0x123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x1a23ull0x1f23", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x12aull0x1b3", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x123ullthisdoesnotcount", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x123ullull", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x123foobar", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X12340x", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1234g", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x37d82ag73f", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1a23ull0x1f23", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x12aull0x1b3", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(
+      lex_numeric_constant("0x123ullthisdoesnotcount", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x123ullull", &tok, alerts));
+  verify_has_alerts(alerts);
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x674U", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x674U", &tok, alerts));
   verify_integer_constant(&tok, "0x674U", 0x674);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x67eU", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x67eU", &tok, alerts));
   verify_integer_constant(&tok, "0x67eU", 0x67e);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x67fULL", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x67fULL", &tok, alerts));
   verify_integer_constant(&tok, "0x67fULL", 0x67f);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x137llU", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x137llU", &tok, alerts));
   verify_integer_constant(&tok, "0x137llU", 0x137);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x6748ll", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x6748ll", &tok, alerts));
   verify_integer_constant(&tok, "0x6748ll", 0x6748);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x237lu", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x237lu", &tok, alerts));
   verify_integer_constant(&tok, "0x237lu", 0x237);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x137uLL", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x137uLL", &tok, alerts));
   verify_integer_constant(&tok, "0x137uLL", 0x137);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0xabcuL", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xabcuL", &tok, alerts));
   verify_integer_constant(&tok, "0xabcuL", 0xabc);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0xdefU;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xdefU;", &tok, alerts));
   verify_integer_constant(&tok, "0xdefU", 0xdef);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x12aLLU;thisdoesnotcount", &tok));
+  TEST_ASSERT_TRUE(
+      lex_numeric_constant("0x12aLLU;thisdoesnotcount", &tok, alerts));
   verify_integer_constant(&tok, "0x12aLLU", 0x12a);
+
+  alert_queue_destroy(alerts);
 }
 
 void test_lex_decimal_float(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
+  alert_queue* alerts = alert_queue_init();
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("1234.;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("1234.;", &tok, alerts));
   verify_float_constant(&tok, "1234.", 1234.);
-  TEST_ASSERT_TRUE(lex_numeric_constant(".2234 ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant(".2234 ", &tok, alerts));
   verify_float_constant(&tok, ".2234", .2234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("3234.1234+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("3234.1234+", &tok, alerts));
   verify_float_constant(&tok, "3234.1234", 3234.1234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("4234.f;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("4234.f;", &tok, alerts));
   verify_float_constant(&tok, "4234.f", 4234.);
-  TEST_ASSERT_TRUE(lex_numeric_constant(".5234F ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant(".5234F ", &tok, alerts));
   verify_float_constant(&tok, ".5234F", .5234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("6234.1234l+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("6234.1234l+", &tok, alerts));
   verify_float_constant(&tok, "6234.1234l", 6234.1234);
-  TEST_ASSERT_TRUE(lex_numeric_constant("7234.L;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("7234.L;", &tok, alerts));
   verify_float_constant(&tok, "7234.L", 7234.);
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("8234.e12;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("8234.e12;", &tok, alerts));
   verify_float_constant(&tok, "8234.e12", 8234.e12);
-  TEST_ASSERT_TRUE(lex_numeric_constant(".9234E009 ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant(".9234E009 ", &tok, alerts));
   verify_float_constant(&tok, ".9234E009", .9234e9);
-  TEST_ASSERT_TRUE(lex_numeric_constant("4334.1234e33+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("4334.1234e33+", &tok, alerts));
   verify_float_constant(&tok, "4334.1234e33", 4334.1234e33);
-  TEST_ASSERT_TRUE(lex_numeric_constant("8234.e+12;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("8234.e+12;", &tok, alerts));
   verify_float_constant(&tok, "8234.e+12", 8234.e12);
-  TEST_ASSERT_TRUE(lex_numeric_constant("2234.E-12;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("2234.E-12;", &tok, alerts));
   verify_float_constant(&tok, "2234.E-12", 2234.e-12);
-  TEST_ASSERT_TRUE(lex_numeric_constant(".9204e+056 ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant(".9204e+056 ", &tok, alerts));
   verify_float_constant(&tok, ".9204e+056", .9204e56);
-  TEST_ASSERT_TRUE(lex_numeric_constant(".5234e-56 ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant(".5234e-56 ", &tok, alerts));
   verify_float_constant(&tok, ".5234e-56", .5234e-56);
-  TEST_ASSERT_TRUE(lex_numeric_constant("2434.1234e+33+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("2434.1234e+33+", &tok, alerts));
   verify_float_constant(&tok, "2434.1234e+33", 2434.1234e33);
-  TEST_ASSERT_TRUE(lex_numeric_constant("1236.1234e-33+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("1236.1234e-33+", &tok, alerts));
   verify_float_constant(&tok, "1236.1234e-33", 1236.1234e-33);
-  TEST_ASSERT_TRUE(lex_numeric_constant("5234.E+12f;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("5234.E+12f;", &tok, alerts));
   verify_float_constant(&tok, "5234.E+12f", 5234.e12);
-  TEST_ASSERT_TRUE(lex_numeric_constant(".0234e-56l ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant(".0234e-56l ", &tok, alerts));
   verify_float_constant(&tok, ".0234e-56l", .0234e-56);
-  TEST_ASSERT_TRUE(lex_numeric_constant("2284.1234e+33F+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("2284.1234e+33F+", &tok, alerts));
   verify_float_constant(&tok, "2284.1234e+33F", 2284.1234e33);
-  TEST_ASSERT_TRUE(lex_numeric_constant("1904.1234E-33f+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("1904.1234E-33f+", &tok, alerts));
   verify_float_constant(&tok, "1904.1234E-33f", 1904.1234e-33);
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("0.;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0.;", &tok, alerts));
   verify_float_constant(&tok, "0.", 0.0);
-  TEST_ASSERT_TRUE(lex_numeric_constant(".0+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant(".0+", &tok, alerts));
   verify_float_constant(&tok, ".0", 0.0);
-  TEST_ASSERT_TRUE(lex_numeric_constant(".0000+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant(".0000+", &tok, alerts));
   verify_float_constant(&tok, ".0000", 0.0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0.00 ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0.00 ", &tok, alerts));
   verify_float_constant(&tok, "0.00", 0.0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0.00000f ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0.00000f ", &tok, alerts));
   verify_float_constant(&tok, "0.00000f", 0.0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0000.00000f ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0000.00000f ", &tok, alerts));
   verify_float_constant(&tok, "0000.00000f", 0.0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0.00000e000f ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0.00000e000f ", &tok, alerts));
   verify_float_constant(&tok, "0.00000e000f", 0.0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0000123.000123L+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0000123.000123L+", &tok, alerts));
   verify_float_constant(&tok, "0000123.000123L", 0000123.000123);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0000123.000123e000l+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0000123.000123e000l+", &tok, alerts));
   verify_float_constant(&tok, "0000123.000123e000l", 0000123.000123e0);
 
-  TEST_ASSERT_FALSE(lex_numeric_constant("0f ", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("00000f ", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("1234.a;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("1234.e;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("1234a.e12;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("1234.e1a2;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("1234.E/123;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("e", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("E", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant(".", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant(".e", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant(".f", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant(".E12f", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant(".ef", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("1234.1234e-33fa", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0f ", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("00000f ", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("1234.a;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("1234.e;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("1234a.e12;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("1234.e1a2;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("1234.E/123;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("1234.1234e-33fa", &tok, alerts));
+  verify_has_alerts(alerts);
+
+  TEST_ASSERT_FALSE(lex_numeric_constant("e", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("E", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".e", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".f", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".E12f", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".ef", &tok, alerts));
+
+  alert_queue_destroy(alerts);
 }
 
 void test_lex_hex_float(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
+  alert_queue* alerts = alert_queue_init();
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x1a3E.p1;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1a3E.p1;", &tok, alerts));
   verify_float_constant(&tok, "0x1a3E.p1", 0x1a3e.p1);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0X.2cD4p23 ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X.2cD4p23 ", &tok, alerts));
   verify_float_constant(&tok, "0X.2cD4p23", 0x.2cd4p23);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0xA23b.1234p69+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xA23b.1234p69+", &tok, alerts));
   verify_float_constant(&tok, "0xA23b.1234p69", 0xa23b.1234p69);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0X4e3B.p78f;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X4e3B.p78f;", &tok, alerts));
   verify_float_constant(&tok, "0X4e3B.p78f", 0x4e3b.p78);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x.5234p00F ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x.5234p00F ", &tok, alerts));
   verify_float_constant(&tok, "0x.5234p00F", 0x.5234p0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0Xe2B4.1234p001l+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0Xe2B4.1234p001l+", &tok, alerts));
   verify_float_constant(&tok, "0Xe2B4.1234p001l", 0xe2b4.1234p1);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x7f3E.p17L;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x7f3E.p17L;", &tok, alerts));
   verify_float_constant(&tok, "0x7f3E.p17L", 0x7f3e.p17);
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("0xa234.p+12;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xa234.p+12;", &tok, alerts));
   verify_float_constant(&tok, "0xa234.p+12", 0xa234.p12);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0Xe23F.p-12;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0Xe23F.p-12;", &tok, alerts));
   verify_float_constant(&tok, "0Xe23F.p-12", 0xe23f.p-12);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x.920fp+56 ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x.920fp+56 ", &tok, alerts));
   verify_float_constant(&tok, "0x.920fp+56", 0x.920fp56);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0X.5c3Dp-56 ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X.5c3Dp-56 ", &tok, alerts));
   verify_float_constant(&tok, "0X.5c3Dp-56", 0x.5c3dp-56);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x24a4.1C34p+33+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x24a4.1C34p+33+", &tok, alerts));
   verify_float_constant(&tok, "0x24a4.1C34p+33", 0x24a4.1c34p33);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0Xb2A6.12dFp-33+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0Xb2A6.12dFp-33+", &tok, alerts));
   verify_float_constant(&tok, "0Xb2A6.12dFp-33", 0xb2a6.12dfp-33);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0xe2a4.p+12f;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0xe2a4.p+12f;", &tok, alerts));
   verify_float_constant(&tok, "0xe2a4.p+12f", 0xe2a4.p12);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x.0dF4p-56l ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x.0dF4p-56l ", &tok, alerts));
   verify_float_constant(&tok, "0x.0dF4p-56l", 0x.0df4p-56);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x2d8E.e234p+33F+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x2d8E.e234p+33F+", &tok, alerts));
   verify_float_constant(&tok, "0x2d8E.e234p+33F", 0x2d8e.e234p33);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0X1b0f.F234p-33f+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X1b0f.F234p-33f+", &tok, alerts));
   verify_float_constant(&tok, "0X1b0f.F234p-33f", 0x1b0f.f234p-33);
 
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x0.p0{", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x0.p0{", &tok, alerts));
   verify_float_constant(&tok, "0x0.p0", 0x0.p0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x.0p0;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x.0p0;", &tok, alerts));
   verify_float_constant(&tok, "0x.0p0", 0x0.p0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x0.0p0;", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x0.0p0;", &tok, alerts));
   verify_float_constant(&tok, "0x0.0p0", 0x0.p0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0X.0p+0+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X.0p+0+", &tok, alerts));
   verify_float_constant(&tok, "0X.0p+0", 0x0.p0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0X.00p00 ", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0X.00p00 ", &tok, alerts));
   verify_float_constant(&tok, "0X.00p00", 0x0.p0);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x.0000p1+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x.0000p1+", &tok, alerts));
   verify_float_constant(&tok, "0x.0000p1", 0x.0000p1);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x000.0000p-00+", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x000.0000p-00+", &tok, alerts));
   verify_float_constant(&tok, "0x000.0000p-00", 0x000.0000p-00);
-  TEST_ASSERT_TRUE(lex_numeric_constant("0x0000abc123.000abc123p12l+", &tok));
+  TEST_ASSERT_TRUE(
+      lex_numeric_constant("0x0000abc123.000abc123p12l+", &tok, alerts));
   verify_float_constant(&tok, "0x0000abc123.000abc123p12l",
                         0x0000abc123.000abc123p12);
 
-  TEST_ASSERT_FALSE(lex_numeric_constant("0f ", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("00000f ", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x123.456;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x1a34.z;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x12b4.p;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x1a34.a1bc;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x1a34.a1bcp;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x1a34.a1bcp12ab;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x1a34.a1bcpa12;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x12z4a.p12;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x1234.p/123;", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("p", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant(".p", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant(".p12f", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant(".pf", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0xp", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x.", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x.p", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x.p123", &tok));
-  TEST_ASSERT_FALSE(lex_numeric_constant("0x1234.1234p-33fa", &tok));
+  TEST_ASSERT_TRUE(lex_numeric_constant("0f ", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("00000f ", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x123.456;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1a34.z;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x12b4.p;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1a34.a1bc;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1a34.a1bcp;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1a34.a1bcp12ab;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1a34.a1bcpa12;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x12z4a.p12;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1234.p/123;", &tok, alerts));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_numeric_constant("0x1234.1234p-33fa", &tok, alerts));
+  verify_has_alerts(alerts);
+
+  TEST_ASSERT_FALSE(lex_numeric_constant("p", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".p", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".p12f", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant(".pf", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0xp", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x.", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x.p", &tok, alerts));
+  TEST_ASSERT_FALSE(lex_numeric_constant("0x.p123", &tok, alerts));
+
+  alert_queue_destroy(alerts);
 }
 
 void test_lex_keyword(void) {
@@ -617,118 +671,119 @@ void test_lex_punctuator(void) {
   TEST_ASSERT_FALSE(lex_punctuator("x;(12+34)", &tok));
 }
 
-void test_char_constant(void) {
+void test_lex_char_literal(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
+  alert_queue* alerts = alert_queue_init();
 
-  TEST_ASSERT_TRUE(lex_char_literal("'a'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'a'", &tok, alerts));
   verify_char_constant(&tok, "'a'", 'a');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\a'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\a'", &tok, alerts));
   verify_char_constant(&tok, "'\\a'", '\a');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\b'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\b'", &tok, alerts));
   verify_char_constant(&tok, "'\\b'", '\b');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\e'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\e'", &tok, alerts));
   verify_char_constant(&tok, "'\\e'", /* '\e' */ '\033');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\f'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\f'", &tok, alerts));
   verify_char_constant(&tok, "'\\f'", '\f');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\n'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\n'", &tok, alerts));
   verify_char_constant(&tok, "'\\n'", '\n');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\t'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\t'", &tok, alerts));
   verify_char_constant(&tok, "'\\t'", '\t');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\v'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\v'", &tok, alerts));
   verify_char_constant(&tok, "'\\v'", '\v');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\\\'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\\\'", &tok, alerts));
   verify_char_constant(&tok, "'\\\\'", '\\');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\\''", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\\''", &tok, alerts));
   verify_char_constant(&tok, "'\\\''", '\'');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\\"'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\\"'", &tok, alerts));
   verify_char_constant(&tok, "'\\\"'", '\"');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\?'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\?'", &tok, alerts));
   verify_char_constant(&tok, "'\\?'", '\?');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\123'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\123'", &tok, alerts));
   verify_char_constant(&tok, "'\\123'", '\123');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\xcf'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'\\xcf'", &tok, alerts));
   verify_char_constant(&tok, "'\\xcf'", '\xcf');
 
-  TEST_ASSERT_TRUE(lex_char_literal("u'\\xcdef'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("u'\\xcdef'", &tok, alerts));
   verify_char16_constant(&tok, "u'\\xcdef'", u'\xcdef');
-  TEST_ASSERT_TRUE(
-      lex_char_literal("u'\xe4\xb8\x96'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("u'\xe4\xb8\x96'", &tok, alerts));
   verify_char16_constant(&tok, "u'\xe4\xb8\x96'", u'世');
-  TEST_ASSERT_TRUE(
-      lex_char_literal("U'\\xabcdef12'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("U'\\xabcdef12'", &tok, alerts));
   verify_char32_constant(&tok, "U'\\xabcdef12'", U'\xabcdef12');
-  TEST_ASSERT_TRUE(
-      lex_char_literal("L'\\xa3456789'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("L'\\xa3456789'", &tok, alerts));
   verify_char32_constant(&tok, "L'\\xa3456789'", L'\xa3456789');
 
-  TEST_ASSERT_TRUE(lex_char_literal("'abc'", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_char_literal("'abc'", &tok, alerts));
   verify_char_constant(&tok, "'abc'", 'c');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\z'", &tok, /*alert_queue=*/NULL));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_char_literal("'\\z'", &tok, alerts));
   verify_char_constant(&tok, "'\\z'", 'z');
-  TEST_ASSERT_TRUE(lex_char_literal("'\\z\\s\\u'", &tok, /*alert_queue=*/NULL));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_char_literal("'\\z\\s\\u'", &tok, alerts));
   verify_char_constant(&tok, "'\\z\\s\\u'", 'u');
-  TEST_ASSERT_TRUE(
-      lex_char_literal("'\\123\\123'", &tok, /*alert_queue=*/NULL));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_char_literal("'\\123\\123'", &tok, alerts));
   verify_char_constant(&tok, "'\\123\\123'", '\123');
-  TEST_ASSERT_TRUE(
-      lex_char_literal("'\\xab\\xcd'", &tok, /*alert_queue=*/NULL));
+  verify_has_alerts(alerts);
+  TEST_ASSERT_TRUE(lex_char_literal("'\\xab\\xcd'", &tok, alerts));
   verify_char_constant(&tok, "'\\xab\\xcd'", '\xcd');
+  verify_has_alerts(alerts);
+
+  alert_queue_destroy(alerts);
 }
 
-void test_string_literal(void) {
+void test_lex_string_literal(void) {
   token tok;
   memset(&tok, 0, sizeof(token));
+  alert_queue* alerts = alert_queue_init();
 
-  TEST_ASSERT_TRUE(
-      lex_string_literal("\"Hello, world!\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("\"Hello, world!\"", &tok, alerts));
   verify_string(&tok, "\"Hello, world!\"", "Hello, world!");
-  TEST_ASSERT_TRUE(lex_string_literal("\"He\\tllo, \\nworl\\fd!\"", &tok,
-                                      /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("\"He\\tllo, \\nworl\\fd!\"", &tok, alerts));
   verify_string(&tok, "\"He\\tllo, \\nworl\\fd!\"", "He\tllo, \nworl\fd!");
-  TEST_ASSERT_TRUE(
-      lex_string_literal("\"Hi\\123\\123Hi\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("\"Hi\\123\\123Hi\"", &tok, alerts));
   verify_string(&tok, "\"Hi\\123\\123Hi\"", "Hi\123\123Hi");
-  TEST_ASSERT_TRUE(
-      lex_string_literal("u8\"Hello, world!\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("u8\"Hello, world!\"", &tok, alerts));
 
   // The cast is just to make compiler warnings happy. No real impacts.
   verify_utf8_string(&tok, "u8\"Hello, world!\"",
                      (const uint8_t*)u8"Hello, world!");
-  TEST_ASSERT_TRUE(
-      lex_string_literal("u8\"\\xaa\\xabHi\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("u8\"\\xaa\\xabHi\"", &tok, alerts));
   verify_utf8_string(&tok, "u8\"\\xaa\\xabHi\"",
                      (const uint8_t*)u8"\xaa\xabHi");
 
-  TEST_ASSERT_TRUE(
-      lex_string_literal("u\"Hi\\xaabb\\x12Hi\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("u\"Hi\\xaabb\\x12Hi\"", &tok, alerts));
   verify_utf16_string(&tok, "u\"Hi\\xaabb\\x12Hi\"", u"Hi\xaabb\x12Hi");
-  TEST_ASSERT_TRUE(lex_string_literal("u\"\xe4\xb8\x96\xe7\x95\x8c\"", &tok,
-                                      /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("u\"\xe4\xb8\x96\xe7\x95\x8c\"", &tok, alerts));
   verify_utf16_string(&tok, "u\"\xe4\xb8\x96\xe7\x95\x8c\"", u"世界");
 
-  TEST_ASSERT_TRUE(lex_string_literal("U\"Hello\\xabcdef12\\x1235678\"", &tok,
-                                      /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("U\"Hello\\xabcdef12\\x1235678\"", &tok, alerts));
   verify_utf32_string(&tok, "U\"Hello\\xabcdef12\\x1235678\"",
                       U"Hello\xabcdef12\x1235678");
-  TEST_ASSERT_TRUE(lex_string_literal("U\"\xe4\xb8\x96\xe7\x95\x8c\"", &tok,
-                                      /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("U\"\xe4\xb8\x96\xe7\x95\x8c\"", &tok, alerts));
   verify_utf32_string(&tok, "U\"\xe4\xb8\x96\xe7\x95\x8c\"", U"世界");
-  TEST_ASSERT_TRUE(lex_string_literal("L\"Hello\\xabcdef12\\x1234578world\"",
-                                      &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(
+      lex_string_literal("L\"Hello\\xabcdef12\\x1234578world\"", &tok, alerts));
   verify_utf32_string(&tok, "L\"Hello\\xabcdef12\\x1234578world\"",
                       (const uint32_t*)L"Hello\xabcdef12\x1234578world");
 
-  TEST_ASSERT_TRUE(lex_string_literal("\"\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("\"\"", &tok, alerts));
   verify_string(&tok, "\"\"", "");
-  TEST_ASSERT_TRUE(lex_string_literal("u8\"\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("u8\"\"", &tok, alerts));
   verify_string(&tok, "u8\"\"", "");
-  TEST_ASSERT_TRUE(lex_string_literal("u\"\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("u\"\"", &tok, alerts));
   verify_string(&tok, "u\"\"", "");
-  TEST_ASSERT_TRUE(lex_string_literal("U\"\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("U\"\"", &tok, alerts));
   verify_string(&tok, "U\"\"", "");
-  TEST_ASSERT_TRUE(lex_string_literal("L\"\"", &tok, /*alert_queue=*/NULL));
+  TEST_ASSERT_TRUE(lex_string_literal("L\"\"", &tok, alerts));
   verify_string(&tok, "L\"\"", "");
+
+  alert_queue_destroy(alerts);
 }
 
 int main(void) {
@@ -741,7 +796,7 @@ int main(void) {
   RUN_TEST(test_lex_hex_float);
   RUN_TEST(test_lex_keyword);
   RUN_TEST(test_lex_punctuator);
-  RUN_TEST(test_char_constant);
-  RUN_TEST(test_string_literal);
+  RUN_TEST(test_lex_char_literal);
+  RUN_TEST(test_lex_string_literal);
   return UNITY_END();
 }
