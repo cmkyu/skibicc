@@ -11,6 +11,7 @@ typedef struct ir_val {
     char* var_name;
     ast_node* constant;
   } val;
+  uint64_t ref_count;
 } ir_val;
 
 typedef enum ir_instruction_type {

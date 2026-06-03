@@ -10,15 +10,20 @@
 #include "errors.h"
 #include "parser.h"
 
-const uint64_t MAX_NAME_SIZE = 32;
-
 static uint64_t COUNT = 0;
 
 static char* generate_name(void) {
-  char* name = malloc_safe(MAX_NAME_SIZE);
+  // TODO: use string_view here.
+  char* name;
+  size_t size;
+  FILE* f = open_memstream(&name, &size);
+  if (!f) {
+    error("FATAL: generate_name(): open_memstream() failed.");
+  }
   ++COUNT;
   // Names are formatted like 1_, 2_, 3_,...
-  snprintf(name, MAX_NAME_SIZE, "%" PRIu64 "_", COUNT);
+  fprintf(f, "%" PRIu64 "_", COUNT);
+  fclose(f);
   return name;
 }
 
@@ -37,12 +42,8 @@ static ir_val* create_ir_val_constant(ast_node* node) {
 }
 
 static ir_val* dup_ir_val(ir_val* val) {
-  ir_val* res = malloc_safe(sizeof(ir_val));
-  memcpy(res, val, sizeof(ir_val));
-  if (!val->is_constant) {
-    res->val.var_name = strdup(val->val.var_name);
-  }
-  return res;
+  val->ref_count++;
+  return val;
 }
 
 ir_val* emit_ir_instruction(ast_node* node, array* instructions) {
@@ -102,6 +103,11 @@ static void destroy_ir_val(ir_val* ir_val) {
   if (!ir_val) {
     return;
   }
+  if (ir_val->ref_count > 0) {
+    --ir_val->ref_count;
+    return;
+  }
+
   if (!ir_val->is_constant) {
     free(ir_val->val.var_name);
   }
