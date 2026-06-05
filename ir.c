@@ -12,11 +12,11 @@
 
 static uint64_t COUNT = 0;
 
-static char* generate_name(void) {
+static string_view generate_name(void) {
   // TODO: use string_view here.
-  char* name;
+  char* data;
   size_t size;
-  FILE* f = open_memstream(&name, &size);
+  FILE* f = open_memstream(&data, &size);
   if (!f) {
     error("FATAL: generate_name(): open_memstream() failed.");
   }
@@ -24,6 +24,10 @@ static char* generate_name(void) {
   // Names are formatted like 1_, 2_, 3_,...
   fprintf(f, "%" PRIu64 "_", COUNT);
   fclose(f);
+
+  string_view name;
+  name.data = data;
+  name.length = size;
   return name;
 }
 
@@ -108,9 +112,6 @@ static void destroy_ir_val(ir_val* ir_val) {
     return;
   }
 
-  if (!ir_val->is_constant) {
-    free(ir_val->val.var_name);
-  }
   free(ir_val);
 }
 

@@ -55,10 +55,9 @@ static asm_operand* stack_allocator_get(stack_allocator* alloc, ir_val* val,
                                         int64_t offset) {
   asm_operand* opnd = calloc_safe(/*nelem=*/1, sizeof(asm_operand));
   opnd->operand_type = ASM_OPND_STACK;
-  // TODO: strlen is expensive here. Should be precomputed by `var_name`.
-  size_t name_len = strlen(val->val.var_name);
-  hashmap_entry* entry =
-      hashmap_get(&alloc->var_to_offset, val->val.var_name, name_len);
+  const char* var_name = val->val.var_name.data;
+  size_t name_len = val->val.var_name.length;
+  hashmap_entry* entry = hashmap_get(&alloc->var_to_offset, var_name, name_len);
   if (entry) {
     opnd->operand.offset = *((int64_t*)(entry->data));
     return opnd;
@@ -67,7 +66,7 @@ static asm_operand* stack_allocator_get(stack_allocator* alloc, ir_val* val,
   opnd->operand.offset = alloc->offset;
 
   hashmap_entry new_entry;
-  new_entry.key = strndup((char*)val->val.var_name, name_len);
+  new_entry.key = strndup((char*)var_name, name_len);
   new_entry.key_size = name_len;
   int64_t* data = malloc_safe(sizeof(int64_t));
   *data = alloc->offset;

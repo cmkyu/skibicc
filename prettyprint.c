@@ -106,7 +106,7 @@ static void prettyprint_ir_val(ir_val* val) {
     free(str);
     return;
   }
-  printf("var(%s)", val->val.var_name);
+  printf("var(%s)", val->val.var_name.data);
 }
 
 static void prettyprint_ir_arithmetic_instruction(ir_instruction* inst) {

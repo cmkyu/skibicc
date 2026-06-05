@@ -36,11 +36,11 @@ void test_ir_basic(void) {
   TEST_ASSERT_EQUAL(2, tok->constant.int_val);
 
   TEST_ASSERT_EQUAL(false, inst->dst->is_constant);
-  TEST_ASSERT_EQUAL_STRING("1_", inst->dst->val.var_name);
+  TEST_ASSERT_EQUAL_STRING("1_", inst->dst->val.var_name.data);
 
   inst = array_at(instructions, 1);
   TEST_ASSERT_EQUAL(IR_RETURN, inst->instruction_type);
-  TEST_ASSERT_EQUAL_STRING("1_", inst->lhs->val.var_name);
+  TEST_ASSERT_EQUAL_STRING("1_", inst->lhs->val.var_name.data);
 
   ir_destroy(ir);
   ast_destroy(ast);

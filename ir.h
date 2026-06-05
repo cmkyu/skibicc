@@ -4,11 +4,12 @@
 #include <stdbool.h>
 
 #include "parser.h"
+#include "strings.h"
 
 typedef struct ir_val {
   bool is_constant;
   union {
-    char* var_name;
+    string_view var_name;
     ast_node* constant;
   } val;
   uint64_t ref_count;
