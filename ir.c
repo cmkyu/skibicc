@@ -112,6 +112,9 @@ static void destroy_ir_val(ir_val* ir_val) {
     return;
   }
 
+  if (!ir_val->is_constant) {
+    free(ir_val->val.var_name.data);
+  }
   free(ir_val);
 }
 

@@ -10,7 +10,7 @@
 
 typedef struct string_view {
   size_t length;
-  const char* data;
+  char* data;
 } string_view;
 
 string_view string_view_init(const char* str);
