@@ -1,5 +1,6 @@
 #include "parser.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -348,8 +349,149 @@ static ast_node* parse_unary_expression(parser* parser) {
   return parse_postfix_expression(parser);
 }
 
+//! Returns the binary operator type represented by `tok`. Exits the program
+//! with an error if `tok` is not a binary operator.
+static ast_operator_type get_binary_op_type(token* tok) {
+  if (tok->token_type != TK_PUNCT) {
+    // TODO: make these errors pretty.
+    error("unexpected token.");
+  }
+
+  if (is_token_string_match(tok, "*")) {
+    return OP_MUL;
+  } else if (is_token_string_match(tok, "/")) {
+    return OP_DIV;
+  } else if (is_token_string_match(tok, "+")) {
+    return OP_ADD;
+  } else if (is_token_string_match(tok, "-")) {
+    return OP_SUB;
+  }
+  // TODO: make these errors pretty.
+  error("unexpected token.");
+  // Unreachable.
+  return -1;
+}
+
+//! Returns a binary expression whose operator is of `op_type` from `tok` and
+//! consumes `tok`. The caller is responsible for populating in the left
+//! handside and the right handside of the expression.
+static ast_node* create_binary_expression(parser* parser,
+                                          ast_operator_type op_type,
+                                          token* tok) {
+  ast_operator* op = create_ast_operator(tok, op_type);
+  consume_token(parser);
+  ast_node* res = create_ast_expression();
+  res->node.expression->op = op;
+  return res;
+}
+
+//! Maps `ast_operator_type` to their corresponding precedence.
+static uint64_t* PRECEDENCE = NULL;
+
+//! Initializes `PRECEDENCE`. Bigger number means higher precedence.
+static void init_precedence(void) {
+  PRECEDENCE = malloc_safe(50);
+
+  PRECEDENCE[OP_POSTINC] = 15;
+  PRECEDENCE[OP_POSTDEC] = 15;
+
+  PRECEDENCE[OP_PREINC] = 14;
+  PRECEDENCE[OP_PREDEC] = 14;
+  PRECEDENCE[OP_POS] = 14;
+  PRECEDENCE[OP_NEG] = 14;
+  PRECEDENCE[OP_NOT] = 14;
+  PRECEDENCE[OP_BITNOT] = 14;
+  PRECEDENCE[OP_DEREF] = 14;
+  PRECEDENCE[OP_ADDROF] = 14;
+
+  PRECEDENCE[OP_MUL] = 13;
+  PRECEDENCE[OP_DIV] = 13;
+  PRECEDENCE[OP_MOD] = 13;
+
+  PRECEDENCE[OP_ADD] = 12;
+  PRECEDENCE[OP_SUB] = 12;
+}
+
+//! Returns the operator precedence of `op_type`.
+static uint64_t get_precedence(ast_operator_type op_type) {
+  if (!PRECEDENCE) {
+    init_precedence();
+  }
+  return PRECEDENCE[op_type];
+}
+
+//! Operator associativity
+typedef enum op_assoc {
+  //! Left associative
+  LEFT,
+  //! Right associative
+  RIGHT,
+} op_assoc;
+
+//! Maps `ast_operator_type` to their corresponding associativity.
+static op_assoc* ASSOC = NULL;
+
+//! Initializes `ASSOC`.
+static void init_associativity(void) {
+  ASSOC = malloc_safe(50);
+
+  ASSOC[OP_POSTINC] = LEFT;
+  ASSOC[OP_POSTDEC] = LEFT;
+
+  ASSOC[OP_PREINC] = RIGHT;
+  ASSOC[OP_PREDEC] = RIGHT;
+  ASSOC[OP_POS] = RIGHT;
+  ASSOC[OP_NEG] = RIGHT;
+  ASSOC[OP_NOT] = RIGHT;
+  ASSOC[OP_BITNOT] = RIGHT;
+  ASSOC[OP_DEREF] = RIGHT;
+  ASSOC[OP_ADDROF] = RIGHT;
+
+  ASSOC[OP_MUL] = LEFT;
+  ASSOC[OP_DIV] = LEFT;
+  ASSOC[OP_MOD] = LEFT;
+  ASSOC[OP_ADD] = LEFT;
+  ASSOC[OP_SUB] = LEFT;
+}
+
+//! Returns the operator associativity of `op_type`.
+static op_assoc get_associativity(ast_operator_type op_type) {
+  if (!ASSOC) {
+    init_associativity();
+  }
+  return ASSOC[op_type];
+}
+
+//! Recursively purses expressions using precedence climbing.
+//! Based on:
+//! https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
+static ast_node* parse_expression_internal(parser* parser, uint64_t min_pred) {
+  ast_node* lhs = parse_unary_expression(parser);
+  while (has_token(parser)) {
+    token* tok = peek_token(parser);
+    ast_operator_type op_type = get_binary_op_type(tok);
+    uint64_t pred = get_precedence(op_type);
+    if (pred < min_pred) {
+      break;
+    }
+    op_assoc assoc = get_associativity(op_type);
+
+    uint64_t next_min_pred = pred;
+    if (assoc == LEFT) {
+      next_min_pred = pred + 1;
+    }
+
+    ast_node* rhs = parse_expression_internal(parser, next_min_pred);
+    ast_node* binary_expr = create_binary_expression(parser, op_type, tok);
+    binary_expr->node.expression->lhs = lhs;
+    binary_expr->node.expression->rhs = rhs;
+    lhs = binary_expr;
+  }
+  return lhs;
+}
+
 ast_node* parse_expression(parser* parser) {
-  return parse_unary_expression(parser);
+  return parse_expression_internal(parser, /*min_pred=*/1);
 }
 
 static ast_node* create_statement(ast_node_type node_type) {

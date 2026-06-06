@@ -23,27 +23,39 @@ typedef struct ast_variable {
   token* tok;
 } ast_variable;
 
+//! Types of operators. Note that the declaration order is important here:
+//! operators are listed top to bottom, in descending precedence.
 typedef enum ast_operator_type {
-  // Postfix "++"
+  //! Postfix "++"
   OP_POSTINC,
-  // Postfix "--"
+  //! Postfix "--"
   OP_POSTDEC,
-  // Pointer dereference "*"
-  OP_DEREF,
-  // Address of "&"
-  OP_ADDROF,
-  // Unary plus "+"
-  OP_POS,
-  // Unary minus "-"
-  OP_NEG,
-  // Logical NOT "!"
-  OP_NOT,
-  // Bitwise NOT "~"
-  OP_BITNOT,
-  // Prefix "++"
+  //! Prefix "++"
   OP_PREINC,
-  // Prefix "--"
+  //! Prefix "--"
   OP_PREDEC,
+  //! Unary plus "+"
+  OP_POS,
+  //! Unary minus "-"
+  OP_NEG,
+  //! Logical NOT "!"
+  OP_NOT,
+  //! Bitwise NOT "~"
+  OP_BITNOT,
+  //! Pointer dereference "*"
+  OP_DEREF,
+  //! Address of "&"
+  OP_ADDROF,
+  //! Multiplication "*"
+  OP_MUL,
+  //! Division "/"
+  OP_DIV,
+  //! Modulo "%"
+  OP_MOD,
+  //! Addition "+"
+  OP_ADD,
+  //! Subtraction "-"
+  OP_SUB
 } ast_operator_type;
 
 typedef struct ast_operator {
