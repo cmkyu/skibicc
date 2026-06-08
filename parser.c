@@ -175,7 +175,7 @@ static ast_node* parse_primary_expression(parser* parser) {
     return node;
   }
   // TODO: implement generic selection parsing.
-  error_tok_fmt(tok, "unexpected token.");
+  error_tok_fmt(tok, "parse_primary_expression(): unexpected token.");
   return NULL;
 }
 
@@ -349,37 +349,38 @@ static ast_node* parse_unary_expression(parser* parser) {
   return parse_postfix_expression(parser);
 }
 
-//! Returns the binary operator type represented by `tok`. Exits the program
-//! with an error if `tok` is not a binary operator.
-static ast_operator_type get_binary_op_type(token* tok) {
+//! If `tok` is a binary operator, populates `op_type` with the binary operator
+//! type represented by `tok` and returns true. Otherwise, returns false.
+static bool get_binary_op_type(token* tok, ast_operator_type* op_type) {
   if (tok->token_type != TK_PUNCT) {
-    // TODO: make these errors pretty.
-    error("unexpected token.");
+    return false;
   }
 
   if (is_token_string_match(tok, "*")) {
-    return OP_MUL;
+    *op_type = OP_MUL;
+    return true;
   } else if (is_token_string_match(tok, "/")) {
-    return OP_DIV;
+    *op_type = OP_DIV;
+    return true;
   } else if (is_token_string_match(tok, "+")) {
-    return OP_ADD;
+    *op_type = OP_ADD;
+    return true;
   } else if (is_token_string_match(tok, "-")) {
-    return OP_SUB;
+    *op_type = OP_SUB;
+    return true;
+  } else if (is_token_string_match(tok, "%")) {
+    *op_type = OP_MOD;
+    return true;
   }
-  // TODO: make these errors pretty.
-  error("unexpected token.");
-  // Unreachable.
-  return -1;
+  return false;
 }
 
-//! Returns a binary expression whose operator is of `op_type` from `tok` and
-//! consumes `tok`. The caller is responsible for populating in the left
-//! handside and the right handside of the expression.
-static ast_node* create_binary_expression(parser* parser,
-                                          ast_operator_type op_type,
+//! Returns a binary expression whose operator is of `op_type` from `tok`. The
+//! caller is responsible for populating in the left handside and the right
+//! handside of the expression.
+static ast_node* create_binary_expression(ast_operator_type op_type,
                                           token* tok) {
   ast_operator* op = create_ast_operator(tok, op_type);
-  consume_token(parser);
   ast_node* res = create_ast_expression();
   res->node.expression->op = op;
   return res;
@@ -390,7 +391,7 @@ static uint64_t* PRECEDENCE = NULL;
 
 //! Initializes `PRECEDENCE`. Bigger number means higher precedence.
 static void init_precedence(void) {
-  PRECEDENCE = malloc_safe(50);
+  PRECEDENCE = malloc_safe(50 * sizeof(ast_operator_type));
 
   PRECEDENCE[OP_POSTINC] = 15;
   PRECEDENCE[OP_POSTDEC] = 15;
@@ -433,7 +434,7 @@ static op_assoc* ASSOC = NULL;
 
 //! Initializes `ASSOC`.
 static void init_associativity(void) {
-  ASSOC = malloc_safe(50);
+  ASSOC = malloc_safe(50 * sizeof(ast_operator_type));
 
   ASSOC[OP_POSTINC] = LEFT;
   ASSOC[OP_POSTDEC] = LEFT;
@@ -469,7 +470,10 @@ static ast_node* parse_expression_internal(parser* parser, uint64_t min_pred) {
   ast_node* lhs = parse_unary_expression(parser);
   while (has_token(parser)) {
     token* tok = peek_token(parser);
-    ast_operator_type op_type = get_binary_op_type(tok);
+    ast_operator_type op_type;
+    if (!get_binary_op_type(tok, &op_type)) {
+      break;
+    }
     uint64_t pred = get_precedence(op_type);
     if (pred < min_pred) {
       break;
@@ -481,8 +485,9 @@ static ast_node* parse_expression_internal(parser* parser, uint64_t min_pred) {
       next_min_pred = pred + 1;
     }
 
+    ast_node* binary_expr = create_binary_expression(op_type, tok);
+    consume_token(parser);
     ast_node* rhs = parse_expression_internal(parser, next_min_pred);
-    ast_node* binary_expr = create_binary_expression(parser, op_type, tok);
     binary_expr->node.expression->lhs = lhs;
     binary_expr->node.expression->rhs = rhs;
     lhs = binary_expr;

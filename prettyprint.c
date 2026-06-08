@@ -32,7 +32,7 @@ static void print_ast_constant(ast_node* ast, size_t depth) {
   token* tok = ast->node.consant->tok;
   char* str = strndup(tok->loc, tok->size);
   print_tabs(depth);
-  printf("(Identifier: %s)\n", str);
+  printf("(Constant: %s)\n", str);
   free(str);
 }
 
