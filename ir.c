@@ -59,8 +59,29 @@ static ir_val* dup_ir_val(ir_val* val) {
   return val;
 }
 
-ir_val* emit_ir_instruction(ast_node* node, array* instructions,
-                            name_generator* gen) {
+// Forward declaration.
+static ir_val* emit_ir_instruction(ast_node*, array*, name_generator*);
+
+//! Assuming `node` is an expression node, emits the IR for the expression, and
+//! returns the IR node representing the destination (i.e., final result) of the
+//! expression.
+static ir_val* emit_expression(ast_node* node, array* instructions,
+                               name_generator* gen) {
+  ir_val* lhs =
+      emit_ir_instruction(node->node.expression->lhs, instructions, gen);
+  ir_val* rhs =
+      emit_ir_instruction(node->node.expression->rhs, instructions, gen);
+  ir_instruction* inst = array_push_back(instructions);
+  inst->instruction_type = IR_ARITH;
+  inst->op = node->node.expression->op;
+  inst->lhs = lhs;
+  inst->rhs = rhs;
+  inst->dst = create_ir_val_var(gen);
+  return dup_ir_val(inst->dst);
+}
+
+static ir_val* emit_ir_instruction(ast_node* node, array* instructions,
+                                   name_generator* gen) {
   if (!node) {
     return NULL;
   }
@@ -71,19 +92,8 @@ ir_val* emit_ir_instruction(ast_node* node, array* instructions,
   if (node->node_type == AST_CONST) {
     return create_ir_val_constant(node);
   }
-
   if (node->node_type == AST_EXPR) {
-    ir_val* lhs =
-        emit_ir_instruction(node->node.expression->lhs, instructions, gen);
-    ir_val* rhs =
-        emit_ir_instruction(node->node.expression->rhs, instructions, gen);
-    ir_instruction* inst = array_push_back(instructions);
-    inst->instruction_type = IR_ARITH;
-    inst->op = node->node.expression->op;
-    inst->lhs = lhs;
-    inst->rhs = rhs;
-    inst->dst = create_ir_val_var(gen);
-    return dup_ir_val(inst->dst);
+    return emit_expression(node, instructions, gen);
   }
 
   if (node->node_type == AST_RETSTMNT) {
