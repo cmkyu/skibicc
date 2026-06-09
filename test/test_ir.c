@@ -11,8 +11,22 @@ void setUp(void) {}
 
 void tearDown(void) {}
 
-void test_ir_basic(void) {
-  char text[] = "int main(void){ return -2;}";
+void verify_constant(ir_val* val, uint64_t expected) {
+  TEST_ASSERT_EQUAL(true, val->is_constant);
+  ast_node* node = val->val.constant;
+  TEST_ASSERT_EQUAL(AST_CONST, node->node_type);
+  token* tok = node->node.consant->tok;
+  TEST_ASSERT_EQUAL(TK_ICONST, tok->token_type);
+  TEST_ASSERT_EQUAL(expected, tok->constant.int_val);
+}
+
+void verify_var_name(ir_val* val, const char* expected) {
+  TEST_ASSERT_EQUAL(false, val->is_constant);
+  TEST_ASSERT_EQUAL_STRING(expected, val->val.var_name.data);
+}
+
+void test_ir_unary_ops(void) {
+  char text[] = "int main(void){ return -~2;}";
   array tokens = lex(text, "test.c");
   ast_node* ast = parse(&tokens);
   ir_node* ir = emit_ir(ast);
@@ -22,25 +36,66 @@ void test_ir_basic(void) {
   TEST_ASSERT_EQUAL_STRING("main", name);
 
   array* instructions = ir->function_definition->instructions;
-  TEST_ASSERT_EQUAL(2, instructions->size);
+  TEST_ASSERT_EQUAL(3, instructions->size);
 
   ir_instruction* inst = array_at(instructions, 0);
   TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
-  TEST_ASSERT_EQUAL(OP_NEG, inst->op->op_type);
-
-  TEST_ASSERT_EQUAL(true, inst->lhs->is_constant);
-  ast_node* node = inst->lhs->val.constant;
-  TEST_ASSERT_EQUAL(AST_CONST, node->node_type);
-  token* tok = node->node.consant->tok;
-  TEST_ASSERT_EQUAL(TK_ICONST, tok->token_type);
-  TEST_ASSERT_EQUAL(2, tok->constant.int_val);
-
-  TEST_ASSERT_EQUAL(false, inst->dst->is_constant);
-  TEST_ASSERT_EQUAL_STRING("1_", inst->dst->val.var_name.data);
+  TEST_ASSERT_EQUAL(OP_BITNOT, inst->op->op_type);
+  verify_constant(inst->lhs, 2);
+  verify_var_name(inst->dst, "1_");
 
   inst = array_at(instructions, 1);
+  TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
+  TEST_ASSERT_EQUAL(OP_NEG, inst->op->op_type);
+  verify_var_name(inst->lhs, "1_");
+  verify_var_name(inst->dst, "2_");
+
+  inst = array_at(instructions, 2);
   TEST_ASSERT_EQUAL(IR_RETURN, inst->instruction_type);
-  TEST_ASSERT_EQUAL_STRING("1_", inst->lhs->val.var_name.data);
+  verify_var_name(inst->lhs, "2_");
+
+  ir_destroy(ir);
+  ast_destroy(ast);
+  destroy_tokens(&tokens);
+}
+
+void test_ir_binary_ops(void) {
+  char text[] = "int main(void){ return 1 + 2 * 3 - 4;}";
+  array tokens = lex(text, "test.c");
+  ast_node* ast = parse(&tokens);
+  ir_node* ir = emit_ir(ast);
+  prettyprint_ir(ir);
+
+  const char* name = ir->function_definition->name;
+  TEST_ASSERT_EQUAL_STRING("main", name);
+
+  array* instructions = ir->function_definition->instructions;
+  TEST_ASSERT_EQUAL(4, instructions->size);
+
+  ir_instruction* inst = array_at(instructions, 0);
+  TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
+  TEST_ASSERT_EQUAL(OP_MUL, inst->op->op_type);
+  verify_constant(inst->lhs, 2);
+  verify_constant(inst->rhs, 3);
+  verify_var_name(inst->dst, "1_");
+
+  inst = array_at(instructions, 1);
+  TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
+  TEST_ASSERT_EQUAL(OP_ADD, inst->op->op_type);
+  verify_constant(inst->lhs, 1);
+  verify_var_name(inst->rhs, "1_");
+  verify_var_name(inst->dst, "2_");
+
+  inst = array_at(instructions, 2);
+  TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
+  TEST_ASSERT_EQUAL(OP_SUB, inst->op->op_type);
+  verify_var_name(inst->lhs, "2_");
+  verify_constant(inst->rhs, 4);
+  verify_var_name(inst->dst, "3_");
+
+  inst = array_at(instructions, 3);
+  TEST_ASSERT_EQUAL(IR_RETURN, inst->instruction_type);
+  verify_var_name(inst->lhs, "3_");
 
   ir_destroy(ir);
   ast_destroy(ast);
@@ -49,6 +104,7 @@ void test_ir_basic(void) {
 
 int main(void) {
   UNITY_BEGIN();
-  RUN_TEST(test_ir_basic);
+  RUN_TEST(test_ir_unary_ops);
+  RUN_TEST(test_ir_binary_ops);
   return UNITY_END();
 }

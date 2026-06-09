@@ -13,7 +13,7 @@ typedef struct string_view {
   char* data;
 } string_view;
 
-string_view string_view_init(const char* str);
+string_view string_view_init(char* str);
 
 //! Concatenates the passed strings and return the result. `n` is the number of
 //! arguments.

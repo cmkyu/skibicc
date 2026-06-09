@@ -11,7 +11,7 @@
 
 #include "errors.h"
 
-string_view string_view_init(const char* str) {
+string_view string_view_init(char* str) {
   string_view str_view;
   str_view.data = str;
   str_view.length = strlen(str);

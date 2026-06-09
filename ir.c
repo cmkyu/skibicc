@@ -10,19 +10,28 @@
 #include "errors.h"
 #include "parser.h"
 
-static uint64_t COUNT = 0;
+//! Variable name generator. Generated name will be formatted like:
+//! "1_", "2_", ... The number is incremented every time `name_generator_get` is
+//! called.
+typedef struct name_generator {
+  //! Counter for tracking the number for the next name.
+  uint64_t count;
+} name_generator;
 
-static string_view generate_name(void) {
-  // TODO: use string_view here.
+//! Initializes the name generator.
+static void name_generator_init(name_generator* gen) { gen->count = 0; }
+
+//! Returns a unique variable name together with its string length.
+static string_view name_generator_get(name_generator* gen) {
   char* data;
   size_t size;
   FILE* f = open_memstream(&data, &size);
   if (!f) {
     error("FATAL: generate_name(): open_memstream() failed.");
   }
-  ++COUNT;
+  ++gen->count;
   // Names are formatted like 1_, 2_, 3_,...
-  fprintf(f, "%" PRIu64 "_", COUNT);
+  fprintf(f, "%" PRIu64 "_", gen->count);
   fclose(f);
 
   string_view name;
@@ -31,10 +40,10 @@ static string_view generate_name(void) {
   return name;
 }
 
-static ir_val* create_ir_val_var(void) {
+static ir_val* create_ir_val_var(name_generator* gen) {
   ir_val* val = calloc_safe(/*nelem=*/1, sizeof(ir_val));
   val->is_constant = false;
-  val->val.var_name = generate_name();
+  val->val.var_name = name_generator_get(gen);
   return val;
 }
 
@@ -50,28 +59,36 @@ static ir_val* dup_ir_val(ir_val* val) {
   return val;
 }
 
-ir_val* emit_ir_instruction(ast_node* node, array* instructions) {
+ir_val* emit_ir_instruction(ast_node* node, array* instructions,
+                            name_generator* gen) {
+  if (!node) {
+    return NULL;
+  }
+
   if (node->node_type == AST_VAR) {
-    return create_ir_val_var();
+    return create_ir_val_var(gen);
   }
   if (node->node_type == AST_CONST) {
     return create_ir_val_constant(node);
   }
 
   if (node->node_type == AST_EXPR) {
-    // Only unary ops for now. Only recurse on lhs.
-    ir_val* lhs = emit_ir_instruction(node->node.expression->lhs, instructions);
+    ir_val* lhs =
+        emit_ir_instruction(node->node.expression->lhs, instructions, gen);
+    ir_val* rhs =
+        emit_ir_instruction(node->node.expression->rhs, instructions, gen);
     ir_instruction* inst = array_push_back(instructions);
     inst->instruction_type = IR_ARITH;
     inst->op = node->node.expression->op;
     inst->lhs = lhs;
-    inst->dst = create_ir_val_var();
+    inst->rhs = rhs;
+    inst->dst = create_ir_val_var(gen);
     return dup_ir_val(inst->dst);
   }
 
   if (node->node_type == AST_RETSTMNT) {
-    ir_val* lhs =
-        emit_ir_instruction(node->node.statement->expression, instructions);
+    ir_val* lhs = emit_ir_instruction(node->node.statement->expression,
+                                      instructions, gen);
     ir_instruction* inst = array_push_back(instructions);
     inst->instruction_type = IR_RETURN;
     inst->lhs = lhs;
@@ -99,10 +116,13 @@ ir_node* emit_ir(ast_node* ast) {
   ir_node* ir = create_ir_node();
   // TODO: hard coded for now. Implement later.
   ir->function_definition->name = "main";
-  emit_ir_instruction(ast, ir->function_definition->instructions);
+  name_generator gen;
+  name_generator_init(&gen);
+  emit_ir_instruction(ast, ir->function_definition->instructions, &gen);
   return ir;
 }
 
+//! Frees all memory allocated by `ir_val` and its members.
 static void destroy_ir_val(ir_val* ir_val) {
   if (!ir_val) {
     return;
@@ -118,6 +138,8 @@ static void destroy_ir_val(ir_val* ir_val) {
   free(ir_val);
 }
 
+//! Frees memories allocated by `ir_instruction`'s members. Does not free the
+//! `ir_instruction` itself.
 static void destroy_ir_instruction(ir_instruction* ir_instruction) {
   // Don't free the `ir_instruction` pointer here. It will be released
   // when the array is destroyed.
@@ -126,6 +148,7 @@ static void destroy_ir_instruction(ir_instruction* ir_instruction) {
   destroy_ir_val(ir_instruction->dst);
 }
 
+//! Frees all memories allocated by `ir_func_def` and its underlying members.
 static void destroy_ir_func_def(ir_func_def* ir_func_def) {
   // TODO: free name here. Not doing this for now since name is hard coded.
   array* instructions = ir_func_def->instructions;
