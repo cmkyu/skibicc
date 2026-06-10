@@ -33,6 +33,8 @@ typedef enum asm_instruction_type {
   ASM_MOV,
   ASM_NEG,
   ASM_NOT,
+  ASM_ADD,
+  ASM_SUB,
   ASM_ALLOCSTACK,
   ASM_RETURN,
 } asm_instruction_type;

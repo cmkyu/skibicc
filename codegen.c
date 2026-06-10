@@ -14,7 +14,7 @@
 #include "ir.h"
 #include "list.h"
 
-const char* asm_register_to_string(asm_register reg) {
+static const char* asm_register_to_string(asm_register reg) {
   switch (reg) {
     case AX:
       return "eax";
@@ -22,23 +22,6 @@ const char* asm_register_to_string(asm_register reg) {
       return "r10d";
   }
   error("Unimplemented reg");
-  return NULL;
-}
-
-const char* asm_instruction_type_to_string(asm_instruction_type inst_type) {
-  switch (inst_type) {
-    case ASM_MOV:
-      return "movl";
-    case ASM_NEG:
-      return "negl";
-    case ASM_NOT:
-      return "notl";
-    case ASM_ALLOCSTACK:
-      return "subq";
-    case ASM_RETURN:
-      return "ret";
-  }
-  error("Unimplemented asm inst");
   return NULL;
 }
 
@@ -124,7 +107,7 @@ static void insert_mov(asm_operand* src, asm_operand* dst,
     inst->dst = create_register(R10);
     list_push_back(asm_instructions, inst);
 
-    // %r10d should be the src of the next mov:
+    // r10 should be the src of the next mov:
     // mov %r10d, <stack2>
     inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
     inst->instruction_type = ASM_MOV;
@@ -152,6 +135,48 @@ static void insert_not(asm_operand* dst, list* asm_instructions) {
   inst->instruction_type = ASM_NOT;
   inst->dst = dst;
   list_push_back(asm_instructions, inst);
+}
+
+static void insert_add(asm_operand* src, asm_operand* dst,
+                       list* asm_instructions) {
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->src = src;
+  if (src->operand_type == ASM_OPND_STACK &&
+      dst->operand_type == ASM_OPND_STACK) {
+    // Both are stack addreses. Not allowed. Mov src to r10.
+    inst->instruction_type = ASM_MOV;
+    inst->dst = create_register(R10);
+    list_push_back(asm_instructions, inst);
+    inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+    inst->src = create_register(R10);
+  }
+  inst->instruction_type = ASM_ADD;
+  inst->dst = dst;
+  list_push_back(asm_instructions, inst);
+}
+
+static void insert_sub(asm_operand* src, asm_operand* dst,
+                       list* asm_instructions) {
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->src = src;
+  if (src->operand_type == ASM_OPND_STACK &&
+      dst->operand_type == ASM_OPND_STACK) {
+    // Both are stack addreses. Not allowed. Mov src to r10.
+    inst->instruction_type = ASM_MOV;
+    inst->dst = create_register(R10);
+    list_push_back(asm_instructions, inst);
+    inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+    inst->src = create_register(R10);
+  }
+  inst->instruction_type = ASM_SUB;
+  inst->dst = dst;
+  list_push_back(asm_instructions, inst);
+}
+
+static asm_operand* dup_operand(asm_operand* opnd) {
+  asm_operand* res = malloc_safe(sizeof(asm_operand));
+  memcpy(res, opnd, sizeof(asm_operand));
+  return res;
 }
 
 static asm_operand* lower_ir_val(ir_val* ir_val, stack_allocator* alloc) {
@@ -185,8 +210,7 @@ static void lower_ir_unary(ir_instruction* ir_instruction,
   asm_operand* dst = lower_ir_val(ir_instruction->dst, alloc);
   insert_mov(src, dst, asm_instructions);
 
-  asm_operand* dst_copy = malloc_safe(sizeof(asm_operand));
-  memcpy(dst_copy, dst, sizeof(asm_operand));
+  asm_operand* dst_copy = dup_operand(dst);
   switch (ir_instruction->op->op_type) {
     case OP_NEG:
       insert_neg(dst_copy, asm_instructions);
@@ -196,6 +220,27 @@ static void lower_ir_unary(ir_instruction* ir_instruction,
       break;
     default:
       error("Unimplemented unary");
+  }
+}
+
+static void lower_ir_binary(ir_instruction* ir_instruction,
+                            stack_allocator* alloc, list* asm_instructions) {
+  // mov(lhs, dst)
+  asm_operand* lhs = lower_ir_val(ir_instruction->lhs, alloc);
+  asm_operand* dst = lower_ir_val(ir_instruction->dst, alloc);
+  insert_mov(lhs, dst, asm_instructions);
+
+  asm_operand* dst_copy = dup_operand(dst);
+  asm_operand* rhs = lower_ir_val(ir_instruction->rhs, alloc);
+  switch (ir_instruction->op->op_type) {
+    case OP_ADD:
+      insert_add(rhs, dst_copy, asm_instructions);
+      break;
+    case OP_SUB:
+      insert_sub(rhs, dst_copy, asm_instructions);
+      break;
+    default:
+      error("Unimplemented binary");
   }
 }
 
@@ -210,8 +255,8 @@ static void lower_ir_instruction(ir_instruction* ir_instruction,
       // TODO: just unary for now. Add more in the future.
       lower_ir_unary(ir_instruction, alloc, asm_instructions);
       break;
-    default:
-      error("Unimplemented ir inst");
+    case IR_BINARY:
+      lower_ir_binary(ir_instruction, alloc, asm_instructions);
   }
 }
 
@@ -247,7 +292,18 @@ static void println(FILE* f, char* fmt, ...) {
   fprintf(f, "\n");
 }
 
-static void emit_asm_operand(FILE* f, asm_operand* asm_operand) {
+static char* emit_asm_operand(asm_operand* asm_operand) {
+  if (!asm_operand) {
+    return NULL;
+  }
+
+  size_t size;
+  char* str = NULL;
+  FILE* f = open_memstream(&str, &size);
+  if (!f) {
+    error("FATAL: emit_asm_operand(): open_memstream() failed.");
+  }
+
   switch (asm_operand->operand_type) {
     case ASM_OPND_IMM:
       fprintf(f, "$%" PRId64, asm_operand->operand.immediate);
@@ -259,16 +315,16 @@ static void emit_asm_operand(FILE* f, asm_operand* asm_operand) {
       fprintf(f, "%%%s", asm_register_to_string(asm_operand->operand.reg));
       break;
   }
+  fclose(f);
+  return str;
 }
 
 static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
+  char* src = emit_asm_operand(asm_instruction->src);
+  char* dst = emit_asm_operand(asm_instruction->dst);
   switch (asm_instruction->instruction_type) {
     case ASM_MOV:
-      fprintf(f, "movl ");
-      emit_asm_operand(f, asm_instruction->src);
-      fprintf(f, ", ");
-      emit_asm_operand(f, asm_instruction->dst);
-      fprintf(f, "\n");
+      println(f, "movl %s, %s", src, dst);
       break;
     case ASM_RETURN:
       println(f, "movq %%rbp, %%rsp");
@@ -276,21 +332,23 @@ static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
       println(f, "ret");
       break;
     case ASM_ALLOCSTACK:
-      fprintf(f, "subq ");
-      emit_asm_operand(f, asm_instruction->src);
-      fprintf(f, ", %%rsp\n");
+      println(f, "subq %s, %%rsp", src);
       break;
     case ASM_NEG:
-      fprintf(f, "negl ");
-      emit_asm_operand(f, asm_instruction->dst);
-      fprintf(f, "\n");
+      println(f, "negl %s", dst);
       break;
     case ASM_NOT:
-      fprintf(f, "notl ");
-      emit_asm_operand(f, asm_instruction->dst);
-      fprintf(f, "\n");
+      println(f, "notl %s", dst);
+      break;
+    case ASM_ADD:
+      println(f, "addl %s, %s", src, dst);
+      break;
+    case ASM_SUB:
+      println(f, "subl %s, %s", src, dst);
       break;
   }
+  free(src);
+  free(dst);
 }
 
 static void emit_asm_func_def(FILE* f, asm_func_def* asm_func_def) {
