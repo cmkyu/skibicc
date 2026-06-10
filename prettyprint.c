@@ -141,9 +141,10 @@ static void prettyprint_ir_instructions(array* instructions) {
   for (size_t i = 0; i < sz; ++i) {
     printf("\t");
     ir_instruction* inst = array_at(instructions, i);
-    if (inst->instruction_type == IR_ARITH) {
+    ir_instruction_type inst_type = inst->instruction_type;
+    if (inst_type == IR_UNARY || inst_type == IR_BINARY) {
       prettyprint_ir_arithmetic_instruction(inst);
-    } else if (inst->instruction_type == IR_RETURN) {
+    } else if (inst_type == IR_RETURN) {
       prettyprint_ir_return_instruction(inst);
     } else {
       error("Unknown instruction type: %d", inst->instruction_type);

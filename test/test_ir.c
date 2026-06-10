@@ -39,13 +39,13 @@ void test_ir_unary_ops(void) {
   TEST_ASSERT_EQUAL(3, instructions->size);
 
   ir_instruction* inst = array_at(instructions, 0);
-  TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
+  TEST_ASSERT_EQUAL(IR_UNARY, inst->instruction_type);
   TEST_ASSERT_EQUAL(OP_BITNOT, inst->op->op_type);
   verify_constant(inst->lhs, 2);
   verify_var_name(inst->dst, "1_");
 
   inst = array_at(instructions, 1);
-  TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
+  TEST_ASSERT_EQUAL(IR_UNARY, inst->instruction_type);
   TEST_ASSERT_EQUAL(OP_NEG, inst->op->op_type);
   verify_var_name(inst->lhs, "1_");
   verify_var_name(inst->dst, "2_");
@@ -73,21 +73,21 @@ void test_ir_binary_ops(void) {
   TEST_ASSERT_EQUAL(4, instructions->size);
 
   ir_instruction* inst = array_at(instructions, 0);
-  TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
+  TEST_ASSERT_EQUAL(IR_BINARY, inst->instruction_type);
   TEST_ASSERT_EQUAL(OP_MUL, inst->op->op_type);
   verify_constant(inst->lhs, 2);
   verify_constant(inst->rhs, 3);
   verify_var_name(inst->dst, "1_");
 
   inst = array_at(instructions, 1);
-  TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
+  TEST_ASSERT_EQUAL(IR_BINARY, inst->instruction_type);
   TEST_ASSERT_EQUAL(OP_ADD, inst->op->op_type);
   verify_constant(inst->lhs, 1);
   verify_var_name(inst->rhs, "1_");
   verify_var_name(inst->dst, "2_");
 
   inst = array_at(instructions, 2);
-  TEST_ASSERT_EQUAL(IR_ARITH, inst->instruction_type);
+  TEST_ASSERT_EQUAL(IR_BINARY, inst->instruction_type);
   TEST_ASSERT_EQUAL(OP_SUB, inst->op->op_type);
   verify_var_name(inst->lhs, "2_");
   verify_constant(inst->rhs, 4);

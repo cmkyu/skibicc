@@ -72,7 +72,7 @@ static ir_val* emit_expression(ast_node* node, array* instructions,
   ir_val* rhs =
       emit_ir_instruction(node->node.expression->rhs, instructions, gen);
   ir_instruction* inst = array_push_back(instructions);
-  inst->instruction_type = IR_ARITH;
+  inst->instruction_type = (rhs == NULL ? IR_UNARY : IR_BINARY);
   inst->op = node->node.expression->op;
   inst->lhs = lhs;
   inst->rhs = rhs;

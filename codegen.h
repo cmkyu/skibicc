@@ -9,8 +9,8 @@
 #include "list.h"
 
 typedef enum asm_register {
-  EAX,
-  R10D,
+  AX,
+  R10,
 } asm_register;
 
 typedef enum asm_operand_type {

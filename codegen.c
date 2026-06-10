@@ -16,9 +16,9 @@
 
 const char* asm_register_to_string(asm_register reg) {
   switch (reg) {
-    case EAX:
+    case AX:
       return "eax";
-    case R10D:
+    case R10:
       return "r10d";
   }
   error("Unimplemented reg");
@@ -121,14 +121,14 @@ static void insert_mov(asm_operand* src, asm_operand* dst,
     // to:
     // mov <stack1>, %r10d
     // mov %r10d, <stack2>
-    inst->dst = create_register(R10D);
+    inst->dst = create_register(R10);
     list_push_back(asm_instructions, inst);
 
     // %r10d should be the src of the next mov:
     // mov %r10d, <stack2>
     inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
     inst->instruction_type = ASM_MOV;
-    inst->src = create_register(R10D);
+    inst->src = create_register(R10);
   }
   inst->dst = dst;
   list_push_back(asm_instructions, inst);
@@ -171,7 +171,7 @@ static void lower_ir_return(ir_instruction* ir_instruction,
                             stack_allocator* alloc, list* asm_instructions) {
   // mov(val, reg(ax))
   asm_operand* src = lower_ir_val(ir_instruction->lhs, alloc);
-  asm_operand* dst = create_register(EAX);
+  asm_operand* dst = create_register(AX);
   insert_mov(src, dst, asm_instructions);
 
   // ret
@@ -206,7 +206,7 @@ static void lower_ir_instruction(ir_instruction* ir_instruction,
     case IR_RETURN:
       lower_ir_return(ir_instruction, alloc, asm_instructions);
       break;
-    case IR_ARITH:
+    case IR_UNARY:
       // TODO: just unary for now. Add more in the future.
       lower_ir_unary(ir_instruction, alloc, asm_instructions);
       break;
