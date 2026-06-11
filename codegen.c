@@ -91,11 +91,17 @@ static void insert_allocate_stack_instruction(stack_allocator* alloc,
   list_push_front(instructions, inst);
 }
 
-static void insert_mov(asm_operand* src, asm_operand* dst,
-                       list* asm_instructions) {
+//! Inserts a "mov `src`, r10" instruction into `asm_instructions`;
+static void insert_mov_r10(asm_operand* src, list* asm_instructions) {
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
   inst->instruction_type = ASM_MOV;
   inst->src = src;
+  inst->dst = create_register(R10);
+  list_push_back(asm_instructions, inst);
+}
+
+static void insert_mov(asm_operand* src, asm_operand* dst,
+                       list* asm_instructions) {
   if (src->operand_type == ASM_OPND_STACK &&
       dst->operand_type == ASM_OPND_STACK) {
     // Both are stack addreses. Not allowed.
@@ -104,15 +110,15 @@ static void insert_mov(asm_operand* src, asm_operand* dst,
     // to:
     // mov <stack1>, %r10d
     // mov %r10d, <stack2>
-    inst->dst = create_register(R10);
-    list_push_back(asm_instructions, inst);
-
+    insert_mov_r10(src, asm_instructions);
     // r10 should be the src of the next mov:
     // mov %r10d, <stack2>
-    inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
-    inst->instruction_type = ASM_MOV;
-    inst->src = create_register(R10);
+    src = create_register(R10);
   }
+
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->instruction_type = ASM_MOV;
+  inst->src = src;
   inst->dst = dst;
   list_push_back(asm_instructions, inst);
 }
@@ -139,36 +145,32 @@ static void insert_not(asm_operand* dst, list* asm_instructions) {
 
 static void insert_add(asm_operand* src, asm_operand* dst,
                        list* asm_instructions) {
-  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
-  inst->src = src;
   if (src->operand_type == ASM_OPND_STACK &&
       dst->operand_type == ASM_OPND_STACK) {
     // Both are stack addreses. Not allowed. Mov src to r10.
-    inst->instruction_type = ASM_MOV;
-    inst->dst = create_register(R10);
-    list_push_back(asm_instructions, inst);
-    inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
-    inst->src = create_register(R10);
+    insert_mov_r10(src, asm_instructions);
+    src = create_register(R10);
   }
+
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
   inst->instruction_type = ASM_ADD;
+  inst->src = src;
   inst->dst = dst;
   list_push_back(asm_instructions, inst);
 }
 
 static void insert_sub(asm_operand* src, asm_operand* dst,
                        list* asm_instructions) {
-  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
-  inst->src = src;
   if (src->operand_type == ASM_OPND_STACK &&
       dst->operand_type == ASM_OPND_STACK) {
     // Both are stack addreses. Not allowed. Mov src to r10.
-    inst->instruction_type = ASM_MOV;
-    inst->dst = create_register(R10);
-    list_push_back(asm_instructions, inst);
-    inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
-    inst->src = create_register(R10);
+    insert_mov_r10(src, asm_instructions);
+    src = create_register(R10);
   }
+
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
   inst->instruction_type = ASM_SUB;
+  inst->src = src;
   inst->dst = dst;
   list_push_back(asm_instructions, inst);
 }
