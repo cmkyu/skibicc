@@ -22,6 +22,8 @@ static const char* asm_register_to_string(asm_register reg) {
       return "edx";
     case R10:
       return "r10d";
+    case R11:
+      return "r11d";
   }
   error("Unimplemented reg");
   return NULL;
@@ -184,6 +186,27 @@ static void lower_sub(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
   list_push_back(asm_instructions, inst);
 }
 
+static void lower_mul(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
+                      list* asm_instructions) {
+  // mov lhs, dst
+  insert_mov(lhs, dst, asm_instructions);
+  const bool need_fixup = dst->operand_type == ASM_OPND_STACK;
+  if (need_fixup) {
+    // imull does not allow memory address as destination. move to r11.
+    insert_mov(dup_operand(dst), create_register(R11), asm_instructions);
+  }
+
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->instruction_type = ASM_MUL;
+  inst->src = rhs;
+  inst->dst = need_fixup ? create_register(R11) : dup_operand(dst);
+  list_push_back(asm_instructions, inst);
+  if (need_fixup) {
+    // mov r11 back to dst.
+    insert_mov(create_register(R11), dup_operand(dst), asm_instructions);
+  }
+}
+
 static void lower_div(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
                       list* asm_instructions, bool want_remainder) {
   // mov lhs, eax
@@ -264,6 +287,9 @@ static void lower_ir_binary(ir_instruction* ir_instruction,
       break;
     case OP_SUB:
       lower_sub(lhs, rhs, dst, asm_instructions);
+      break;
+    case OP_MUL:
+      lower_mul(lhs, rhs, dst, asm_instructions);
       break;
     case OP_DIV:
       lower_div(lhs, rhs, dst, asm_instructions, /*want_remainder=*/false);
@@ -370,11 +396,14 @@ static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
     case ASM_SUB:
       println(f, "subl %s, %s", src, dst);
       break;
-    case ASM_CDQ:
-      println(f, "cdq");
+    case ASM_MUL:
+      println(f, "imull %s, %s", src, dst);
       break;
     case ASM_DIV:
       println(f, "idivl %s", dst);
+      break;
+    case ASM_CDQ:
+      println(f, "cdq");
       break;
     case ASM_ALLOCSTACK:
       println(f, "subq %s, %%rsp", src);

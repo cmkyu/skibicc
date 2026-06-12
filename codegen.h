@@ -12,6 +12,7 @@ typedef enum asm_register {
   AX,
   DX,
   R10,
+  R11,
 } asm_register;
 
 typedef enum asm_operand_type {
@@ -36,8 +37,9 @@ typedef enum asm_instruction_type {
   ASM_NOT,
   ASM_ADD,
   ASM_SUB,
-  ASM_CDQ,
+  ASM_MUL,
   ASM_DIV,
+  ASM_CDQ,
   ASM_ALLOCSTACK,
   ASM_RETURN,
 } asm_instruction_type;
