@@ -55,7 +55,11 @@ typedef enum ast_operator_type {
   //! Addition "+"
   OP_ADD,
   //! Subtraction "-"
-  OP_SUB
+  OP_SUB,
+  //! Bit left shift "<<"
+  OP_SHL,
+  //! Bit right shift ">>"
+  OP_SHR,
 } ast_operator_type;
 
 typedef struct ast_operator {

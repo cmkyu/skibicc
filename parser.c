@@ -371,6 +371,12 @@ static bool get_binary_op_type(token* tok, ast_operator_type* op_type) {
   } else if (is_token_string_match(tok, "%")) {
     *op_type = OP_MOD;
     return true;
+  } else if (is_token_string_match(tok, "<<")) {
+    *op_type = OP_SHL;
+    return true;
+  } else if (is_token_string_match(tok, ">>")) {
+    *op_type = OP_SHR;
+    return true;
   }
   return false;
 }
@@ -411,6 +417,9 @@ static void init_precedence(void) {
 
   PRECEDENCE[OP_ADD] = 12;
   PRECEDENCE[OP_SUB] = 12;
+
+  PRECEDENCE[OP_SHL] = 11;
+  PRECEDENCE[OP_SHR] = 11;
 }
 
 //! Returns the operator precedence of `op_type`.
@@ -453,6 +462,8 @@ static void init_associativity(void) {
   ASSOC[OP_MOD] = LEFT;
   ASSOC[OP_ADD] = LEFT;
   ASSOC[OP_SUB] = LEFT;
+  ASSOC[OP_SHL] = LEFT;
+  ASSOC[OP_SHR] = LEFT;
 }
 
 //! Returns the operator associativity of `op_type`.
