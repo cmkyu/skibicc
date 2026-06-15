@@ -14,10 +14,29 @@
 #include "ir.h"
 #include "list.h"
 
+static const char* reg_cx_to_string(asm_register_size reg_size) {
+  switch (reg_size) {
+    case _8L:
+      return "cl";
+    case _8H:
+      return "ch";
+    case _16:
+      return "cx";
+    case _32:
+      return "ecx";
+    case _64:
+      return "rcx";
+  }
+  error("unexpected asm_register_type");
+  return NULL;
+}
+
 static const char* asm_register_to_string(asm_register reg) {
-  switch (reg) {
+  switch (reg.type) {
     case AX:
       return "eax";
+    case CX:
+      return reg_cx_to_string(reg.size);
     case DX:
       return "edx";
     case R10:
@@ -67,10 +86,12 @@ static void stack_allocator_destroy(stack_allocator* alloc) {
   hashmap_destroy(&alloc->var_to_offset);
 }
 
-static asm_operand* create_register(asm_register reg) {
+static asm_operand* create_register(asm_register_type reg_type,
+                                    asm_register_size reg_size) {
   asm_operand* opnd = calloc_safe(/*nelem=*/1, sizeof(asm_operand));
   opnd->operand_type = ASM_OPND_REG;
-  opnd->operand.reg = reg;
+  opnd->operand.reg.type = reg_type;
+  opnd->operand.reg.size = reg_size;
   return opnd;
 }
 
@@ -108,11 +129,11 @@ static void insert_mov(asm_operand* src, asm_operand* dst,
     asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
     inst->instruction_type = ASM_MOV;
     inst->src = src;
-    inst->dst = create_register(R10);
+    inst->dst = create_register(R10, _32);
     list_push_back(asm_instructions, inst);
     // r10 should be the src of the next mov:
     // mov %r10d, <stack2>
-    src = create_register(R10);
+    src = create_register(R10, _32);
   }
 
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
@@ -156,8 +177,8 @@ static void lower_add(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
   if (rhs->operand_type == ASM_OPND_STACK &&
       dst->operand_type == ASM_OPND_STACK) {
     // Both are stack addreses. Not allowed. Mov rhs to r10.
-    insert_mov(rhs, create_register(R10), asm_instructions);
-    rhs = create_register(R10);
+    insert_mov(rhs, create_register(R10, _32), asm_instructions);
+    rhs = create_register(R10, _32);
   }
 
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
@@ -175,8 +196,8 @@ static void lower_sub(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
   if (rhs->operand_type == ASM_OPND_STACK &&
       dst->operand_type == ASM_OPND_STACK) {
     // Both are stack addreses. Not allowed. Mov src to r10.
-    insert_mov(rhs, create_register(R10), asm_instructions);
-    rhs = create_register(R10);
+    insert_mov(rhs, create_register(R10, _32), asm_instructions);
+    rhs = create_register(R10, _32);
   }
 
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
@@ -193,24 +214,24 @@ static void lower_mul(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
   const bool need_fixup = dst->operand_type == ASM_OPND_STACK;
   if (need_fixup) {
     // imull does not allow memory address as destination. move to r11.
-    insert_mov(dup_operand(dst), create_register(R11), asm_instructions);
+    insert_mov(dup_operand(dst), create_register(R11, _32), asm_instructions);
   }
 
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
   inst->instruction_type = ASM_MUL;
   inst->src = rhs;
-  inst->dst = need_fixup ? create_register(R11) : dup_operand(dst);
+  inst->dst = need_fixup ? create_register(R11, _32) : dup_operand(dst);
   list_push_back(asm_instructions, inst);
   if (need_fixup) {
     // mov r11 back to dst.
-    insert_mov(create_register(R11), dup_operand(dst), asm_instructions);
+    insert_mov(create_register(R11, _32), dup_operand(dst), asm_instructions);
   }
 }
 
 static void lower_div(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
                       list* asm_instructions, bool want_remainder) {
   // mov lhs, eax
-  insert_mov(lhs, create_register(AX), asm_instructions);
+  insert_mov(lhs, create_register(AX, _32), asm_instructions);
   // cdq
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
   inst->instruction_type = ASM_CDQ;
@@ -218,8 +239,8 @@ static void lower_div(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
 
   if (rhs->operand_type == ASM_OPND_IMM) {
     // idiv does not work on immediate. mov rhs to r10.
-    insert_mov(rhs, create_register(R10), asm_instructions);
-    rhs = create_register(R10);
+    insert_mov(rhs, create_register(R10, _32), asm_instructions);
+    rhs = create_register(R10, _32);
   }
   // idiv rhs
   inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
@@ -228,7 +249,26 @@ static void lower_div(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
   list_push_back(asm_instructions, inst);
   // division: mov eax, dst
   // modulo: mov edx, dst
-  insert_mov(create_register(want_remainder ? DX : AX), dst, asm_instructions);
+  insert_mov(create_register(want_remainder ? DX : AX, _32), dst,
+             asm_instructions);
+}
+
+static void lower_bit_shift(asm_operand* lhs, asm_operand* rhs,
+                            asm_operand* dst, list* asm_instructions,
+                            bool is_left) {
+  // mov lhs, dst
+  insert_mov(lhs, dst, asm_instructions);
+  if (rhs->operand_type != ASM_OPND_IMM) {
+    // Not an immmediate. mov to cl.
+    insert_mov(rhs, create_register(CX, _8L), asm_instructions);
+    rhs = create_register(CX, _8L);
+  }
+
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->instruction_type = (is_left ? ASM_SHL : ASM_SHR);
+  inst->src = rhs;
+  inst->dst = dup_operand(dst);
+  list_push_back(asm_instructions, inst);
 }
 
 static asm_operand* lower_ir_val(ir_val* ir_val, stack_allocator* alloc) {
@@ -248,7 +288,7 @@ static void lower_ir_return(ir_instruction* ir_instruction,
                             stack_allocator* alloc, list* asm_instructions) {
   // mov(val, reg(ax))
   asm_operand* src = lower_ir_val(ir_instruction->lhs, alloc);
-  asm_operand* dst = create_register(AX);
+  asm_operand* dst = create_register(AX, _32);
   insert_mov(src, dst, asm_instructions);
 
   // ret
@@ -296,6 +336,12 @@ static void lower_ir_binary(ir_instruction* ir_instruction,
       break;
     case OP_MOD:
       lower_div(lhs, rhs, dst, asm_instructions, /*want_remainder=*/true);
+      break;
+    case OP_SHL:
+      lower_bit_shift(lhs, rhs, dst, asm_instructions, /*is_left=*/true);
+      break;
+    case OP_SHR:
+      lower_bit_shift(lhs, rhs, dst, asm_instructions, /*is_left=*/false);
       break;
     default:
       error("Unimplemented binary");
@@ -404,6 +450,12 @@ static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
       break;
     case ASM_CDQ:
       println(f, "cdq");
+      break;
+    case ASM_SHL:
+      println(f, "shll %s, %s", src, dst);
+      break;
+    case ASM_SHR:
+      println(f, "shrl %s, %s", src, dst);
       break;
     case ASM_ALLOCSTACK:
       println(f, "subq %s, %%rsp", src);

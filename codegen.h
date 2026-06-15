@@ -8,11 +8,37 @@
 #include "ir.h"
 #include "list.h"
 
-typedef enum asm_register {
+//! Size of the register.
+typedef enum asm_register_size {
+  //! Low 8 bits.
+  _8L,
+  //! High 8 bits.
+  _8H,
+  //! 16 bits.
+  _16,
+  //! 32 bits.
+  _32,
+  //! 64 bits.
+  _64,
+} asm_register_size;
+
+//! Type of the register.
+typedef enum asm_register_type {
+  //! rax
   AX,
+  //! rcx
+  CX,
+  //! rdx
   DX,
+  //! r10
   R10,
+  //! r11
   R11,
+} asm_register_type;
+
+typedef struct asm_register {
+  asm_register_type type;
+  asm_register_size size;
 } asm_register;
 
 typedef enum asm_operand_type {
@@ -40,6 +66,8 @@ typedef enum asm_instruction_type {
   ASM_MUL,
   ASM_DIV,
   ASM_CDQ,
+  ASM_SHL,
+  ASM_SHR,
   ASM_ALLOCSTACK,
   ASM_RETURN,
 } asm_instruction_type;
