@@ -60,6 +60,12 @@ typedef enum ast_operator_type {
   OP_SHL,
   //! Bit right shift ">>"
   OP_SHR,
+  //! Bitwise and "&"
+  OP_BITAND,
+  //! Bitwise xor "^"
+  OP_BITXOR,
+  //! Bitwise or "|"
+  OP_BITOR,
 } ast_operator_type;
 
 typedef struct ast_operator {

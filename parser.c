@@ -377,6 +377,15 @@ static bool get_binary_op_type(token* tok, ast_operator_type* op_type) {
   } else if (is_token_string_match(tok, ">>")) {
     *op_type = OP_SHR;
     return true;
+  } else if (is_token_string_match(tok, "&")) {
+    *op_type = OP_BITAND;
+    return true;
+  } else if (is_token_string_match(tok, "^")) {
+    *op_type = OP_BITXOR;
+    return true;
+  } else if (is_token_string_match(tok, "|")) {
+    *op_type = OP_BITOR;
+    return true;
   }
   return false;
 }
