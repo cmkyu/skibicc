@@ -429,6 +429,10 @@ static void init_precedence(void) {
 
   PRECEDENCE[OP_SHL] = 11;
   PRECEDENCE[OP_SHR] = 11;
+
+  PRECEDENCE[OP_BITAND] = 8;
+  PRECEDENCE[OP_BITXOR] = 7;
+  PRECEDENCE[OP_BITOR] = 6;
 }
 
 //! Returns the operator precedence of `op_type`.
@@ -473,6 +477,10 @@ static void init_associativity(void) {
   ASSOC[OP_SUB] = LEFT;
   ASSOC[OP_SHL] = LEFT;
   ASSOC[OP_SHR] = LEFT;
+
+  ASSOC[OP_BITAND] = LEFT;
+  ASSOC[OP_BITXOR] = LEFT;
+  ASSOC[OP_BITOR] = LEFT;
 }
 
 //! Returns the operator associativity of `op_type`.
