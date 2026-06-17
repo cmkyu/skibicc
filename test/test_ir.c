@@ -102,9 +102,53 @@ void test_ir_binary_ops(void) {
   destroy_tokens(&tokens);
 }
 
+void test_ir_bit_ops(void) {
+  char text[] = "int main(void){ return 1 & 2 >> 3 | 4;}";
+  array tokens = lex(text, "test.c");
+  ast_node* ast = parse(&tokens);
+  ir_node* ir = emit_ir(ast);
+  prettyprint_ir(ir);
+
+  const char* name = ir->function_definition->name;
+  TEST_ASSERT_EQUAL_STRING("main", name);
+
+  array* instructions = ir->function_definition->instructions;
+  TEST_ASSERT_EQUAL(4, instructions->size);
+
+  ir_instruction* inst = array_at(instructions, 0);
+  TEST_ASSERT_EQUAL(IR_BINARY, inst->instruction_type);
+  TEST_ASSERT_EQUAL(OP_SHR, inst->op->op_type);
+  verify_constant(inst->lhs, 2);
+  verify_constant(inst->rhs, 3);
+  verify_var_name(inst->dst, "1_");
+
+  inst = array_at(instructions, 1);
+  TEST_ASSERT_EQUAL(IR_BINARY, inst->instruction_type);
+  TEST_ASSERT_EQUAL(OP_BITAND, inst->op->op_type);
+  verify_constant(inst->lhs, 1);
+  verify_var_name(inst->rhs, "1_");
+  verify_var_name(inst->dst, "2_");
+
+  inst = array_at(instructions, 2);
+  TEST_ASSERT_EQUAL(IR_BINARY, inst->instruction_type);
+  TEST_ASSERT_EQUAL(OP_BITOR, inst->op->op_type);
+  verify_var_name(inst->lhs, "2_");
+  verify_constant(inst->rhs, 4);
+  verify_var_name(inst->dst, "3_");
+
+  inst = array_at(instructions, 3);
+  TEST_ASSERT_EQUAL(IR_RETURN, inst->instruction_type);
+  verify_var_name(inst->lhs, "3_");
+
+  ir_destroy(ir);
+  ast_destroy(ast);
+  destroy_tokens(&tokens);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_ir_unary_ops);
   RUN_TEST(test_ir_binary_ops);
+  RUN_TEST(test_ir_bit_ops);
   return UNITY_END();
 }
