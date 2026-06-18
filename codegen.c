@@ -169,8 +169,13 @@ static asm_operand* dup_operand(asm_operand* opnd) {
   return res;
 }
 
-static void lower_add(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
-                      list* asm_instructions) {
+//! Inserts into `asm_instructions` an `inst_type` instruction with a binary
+//! operator that acts on `lhs` and `rhs`, and stores the result in `dst`.
+//! Helper instructions that move around the operands will be inserted as
+//! needed. Only suitable for add, sub, and, or, xor instructions.
+static void lower_simple_binary_inst(asm_instruction_type inst_type,
+                                     asm_operand* lhs, asm_operand* rhs,
+                                     asm_operand* dst, list* asm_instructions) {
   // mov lhs, dst
   insert_mov(lhs, dst, asm_instructions);
   dst = dup_operand(dst);
@@ -182,26 +187,7 @@ static void lower_add(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
   }
 
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
-  inst->instruction_type = ASM_ADD;
-  inst->src = rhs;
-  inst->dst = dst;
-  list_push_back(asm_instructions, inst);
-}
-
-static void lower_sub(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
-                      list* asm_instructions) {
-  // mov lhs, dst
-  insert_mov(lhs, dst, asm_instructions);
-  dst = dup_operand(dst);
-  if (rhs->operand_type == ASM_OPND_STACK &&
-      dst->operand_type == ASM_OPND_STACK) {
-    // Both are stack addreses. Not allowed. Mov src to r10.
-    insert_mov(rhs, create_register(R10, _32), asm_instructions);
-    rhs = create_register(R10, _32);
-  }
-
-  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
-  inst->instruction_type = ASM_SUB;
+  inst->instruction_type = inst_type;
   inst->src = rhs;
   inst->dst = dst;
   list_push_back(asm_instructions, inst);
@@ -323,10 +309,10 @@ static void lower_ir_binary(ir_instruction* ir_instruction,
   asm_operand* dst = lower_ir_val(ir_instruction->dst, alloc);
   switch (ir_instruction->op->op_type) {
     case OP_ADD:
-      lower_add(lhs, rhs, dst, asm_instructions);
+      lower_simple_binary_inst(ASM_ADD, lhs, rhs, dst, asm_instructions);
       break;
     case OP_SUB:
-      lower_sub(lhs, rhs, dst, asm_instructions);
+      lower_simple_binary_inst(ASM_SUB, lhs, rhs, dst, asm_instructions);
       break;
     case OP_MUL:
       lower_mul(lhs, rhs, dst, asm_instructions);
@@ -342,6 +328,15 @@ static void lower_ir_binary(ir_instruction* ir_instruction,
       break;
     case OP_SHR:
       lower_bit_shift(lhs, rhs, dst, asm_instructions, /*is_left=*/false);
+      break;
+    case OP_BITAND:
+      lower_simple_binary_inst(ASM_AND, lhs, rhs, dst, asm_instructions);
+      break;
+    case OP_BITOR:
+      lower_simple_binary_inst(ASM_OR, lhs, rhs, dst, asm_instructions);
+      break;
+    case OP_BITXOR:
+      lower_simple_binary_inst(ASM_XOR, lhs, rhs, dst, asm_instructions);
       break;
     default:
       error("Unimplemented binary");
@@ -456,6 +451,15 @@ static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
       break;
     case ASM_SHR:
       println(f, "shrl %s, %s", src, dst);
+      break;
+    case ASM_AND:
+      println(f, "andl %s, %s", src, dst);
+      break;
+    case ASM_OR:
+      println(f, "orl %s, %s", src, dst);
+      break;
+    case ASM_XOR:
+      println(f, "xorl %s, %s", src, dst);
       break;
     case ASM_ALLOCSTACK:
       println(f, "subq %s, %%rsp", src);

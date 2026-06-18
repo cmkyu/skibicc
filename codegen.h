@@ -68,6 +68,9 @@ typedef enum asm_instruction_type {
   ASM_CDQ,
   ASM_SHL,
   ASM_SHR,
+  ASM_AND,
+  ASM_OR,
+  ASM_XOR,
   ASM_ALLOCSTACK,
   ASM_RETURN,
 } asm_instruction_type;
