@@ -8,15 +8,25 @@
 #include "../unity/unity.h"
 #include "codegen.h"
 
-static FILE* file = NULL;
-static const char* filename = ".test_codegen_tmp.txt";
+static FILE* out_file = NULL;
+static const char* out_filename = ".test_codegen_tmp.txt";
 
-void setUp(void) { file = fopen(filename, "w+"); }
+char* read_test_file(const char* filename) {
+  FILE* f = fopen(filename, "r");
+  fseek(f, 0, SEEK_END);
+  long fsize = ftell(f);
+  rewind(f);
 
-void tearDown(void) {
-  fclose(file);
-  remove(filename);
+  char* content = malloc(fsize + 1);
+  fread(content, fsize, 1, f);
+  content[fsize] = '\0';
+  fclose(f);
+  return content;
 }
+
+void setUp(void) { out_file = fopen(out_filename, "w+"); }
+
+void tearDown(void) { remove(out_filename); }
 
 void test_codegen_basic(void) {
   char text[] = "int main(void){ return -2;}";
@@ -24,32 +34,34 @@ void test_codegen_basic(void) {
   ast_node* ast = parse(&tokens);
   ir_node* ir = emit_ir(ast);
 
-  emit(file, ir);
+  emit(out_file, ir);
+  fclose(out_file);
   ir_destroy(ir);
   ast_destroy(ast);
   destroy_tokens(&tokens);
 
-  fseek(file, 0, SEEK_END);
-  long fsize = ftell(file);
-  rewind(file);
+  char* actual = read_test_file(out_filename);
+  char* expected = read_test_file("./test/data/codegen_test_basic.txt");
+  TEST_ASSERT_EQUAL_STRING(expected, actual);
 
-  char* actual = malloc(fsize + 1);
-  fread(actual, fsize, 1, file);
-  actual[fsize] = '\0';
+  free(actual);
+  free(expected);
+}
 
-  const char* expected =
-      ".globl main\n"
-      "main:\n"
-      "pushq %rbp\n"
-      "movq %rsp, %rbp\n"
-      "subq $4, %rsp\n"
-      "movl $2, -4(%rbp)\n"
-      "negl -4(%rbp)\n"
-      "movl -4(%rbp), %eax\n"
-      "movq %rbp, %rsp\n"
-      "popq %rbp\n"
-      "ret\n"
-      ".section .note.GNU-stack,\"\",@progbits\n";
+void test_codegen_binary_ops(void) {
+  char text[] = "int main(void){ return 1 + 2 * 3 / 4 - 5 % 6;}";
+  array tokens = lex(text, "test.c");
+  ast_node* ast = parse(&tokens);
+  ir_node* ir = emit_ir(ast);
+
+  emit(out_file, ir);
+  fclose(out_file);
+  ir_destroy(ir);
+  ast_destroy(ast);
+  destroy_tokens(&tokens);
+
+  char* actual = read_test_file(out_filename);
+  char* expected = read_test_file("./test/data/codegen_test_binary_ops.txt");
   TEST_ASSERT_EQUAL_STRING(expected, actual);
 
   free(actual);
@@ -58,5 +70,6 @@ void test_codegen_basic(void) {
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_codegen_basic);
+  RUN_TEST(test_codegen_binary_ops);
   return UNITY_END();
 }
