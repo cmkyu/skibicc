@@ -61,8 +61,9 @@ static inline bool stack_allocator_has_offset(stack_allocator* alloc) {
   return alloc->offset < 0;
 }
 
-//! Allocates `offset` bytes on the stack for `val`. `val` must be a variable
-//! (i.e., must not be a constant.
+//! Given a variable `val`, returns its offset on the stack. If `val` is a new
+//! variable, allocates `offset` bytes on the stack for `val`. `val` must be a
+//! variable (i.e., must not be a constant).
 static asm_operand* stack_allocator_get(stack_allocator* alloc, ir_val* val,
                                         int64_t offset) {
   asm_operand* opnd = calloc_safe(/*nelem=*/1, sizeof(asm_operand));
