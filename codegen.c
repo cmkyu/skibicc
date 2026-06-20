@@ -14,6 +14,7 @@
 #include "ir.h"
 #include "list.h"
 
+//! Given a `reg_size`, returns the corresponding ecx register name.
 static const char* reg_cx_to_string(asm_register_size reg_size) {
   switch (reg_size) {
     case _8L:
@@ -31,6 +32,7 @@ static const char* reg_cx_to_string(asm_register_size reg_size) {
   return NULL;
 }
 
+//! Given a register `reg`, returns its name.
 static const char* asm_register_to_string(asm_register reg) {
   switch (reg.type) {
     case AX:
@@ -48,15 +50,19 @@ static const char* asm_register_to_string(asm_register reg) {
   return NULL;
 }
 
+//! Initializes `alloc`.
 static void stack_allocator_init(stack_allocator* alloc) {
   hashmap_init(&alloc->var_to_offset);
   alloc->offset = 0;
 }
 
+//! Returns true if the stack is non-empty. Otherwise returns false.
 static inline bool stack_allocator_has_offset(stack_allocator* alloc) {
   return alloc->offset < 0;
 }
 
+//! Allocates `offset` bytes on the stack for `val`. `val` must be a variable
+//! (i.e., must not be a constant.
 static asm_operand* stack_allocator_get(stack_allocator* alloc, ir_val* val,
                                         int64_t offset) {
   asm_operand* opnd = calloc_safe(/*nelem=*/1, sizeof(asm_operand));
@@ -82,10 +88,13 @@ static asm_operand* stack_allocator_get(stack_allocator* alloc, ir_val* val,
   return opnd;
 }
 
+//! Frees the allocated memory of stack allocator. It is up to the user to free
+//! `alloc` itself.
 static void stack_allocator_destroy(stack_allocator* alloc) {
   hashmap_destroy(&alloc->var_to_offset);
 }
 
+//! Returns a register operand of `reg_type` and `reg_size`.
 static asm_operand* create_register(asm_register_type reg_type,
                                     asm_register_size reg_size) {
   asm_operand* opnd = calloc_safe(/*nelem=*/1, sizeof(asm_operand));
@@ -95,6 +104,7 @@ static asm_operand* create_register(asm_register_type reg_type,
   return opnd;
 }
 
+//! Returns an immediate operand of value `immediate`.
 static asm_operand* create_immediate(int64_t immediate) {
   asm_operand* opnd = calloc_safe(/*nelem=*/1, sizeof(asm_operand));
   opnd->operand_type = ASM_OPND_IMM;
@@ -102,6 +112,8 @@ static asm_operand* create_immediate(int64_t immediate) {
   return opnd;
 }
 
+//! Inserts an instruction that allocates stack memory as specified by `alloc`'s
+//! offset.
 static void insert_allocate_stack_instruction(stack_allocator* alloc,
                                               list* instructions) {
   if (!stack_allocator_has_offset(alloc)) {
@@ -116,6 +128,9 @@ static void insert_allocate_stack_instruction(stack_allocator* alloc,
   list_push_front(instructions, inst);
 }
 
+//! Inserts a mov instruction that moves data from `src` to `dst`. Inserts an
+//! intermediate mov instruction as needed if `src` and `dst` are both stack
+//! addresses.
 static void insert_mov(asm_operand* src, asm_operand* dst,
                        list* asm_instructions) {
   if (src->operand_type == ASM_OPND_STACK &&
@@ -143,12 +158,14 @@ static void insert_mov(asm_operand* src, asm_operand* dst,
   list_push_back(asm_instructions, inst);
 }
 
+//! Inserts a ret instruction.
 static void insert_ret(list* asm_instructions) {
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
   inst->instruction_type = ASM_RETURN;
   list_push_back(asm_instructions, inst);
 }
 
+//! Inserts a neg instruction.
 static void insert_neg(asm_operand* dst, list* asm_instructions) {
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
   inst->instruction_type = ASM_NEG;
@@ -156,6 +173,7 @@ static void insert_neg(asm_operand* dst, list* asm_instructions) {
   list_push_back(asm_instructions, inst);
 }
 
+//! Inserts a not instruction.
 static void insert_not(asm_operand* dst, list* asm_instructions) {
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
   inst->instruction_type = ASM_NOT;
@@ -163,6 +181,7 @@ static void insert_not(asm_operand* dst, list* asm_instructions) {
   list_push_back(asm_instructions, inst);
 }
 
+//! Returns a deep copy of `opnd`.
 static asm_operand* dup_operand(asm_operand* opnd) {
   asm_operand* res = malloc_safe(sizeof(asm_operand));
   memcpy(res, opnd, sizeof(asm_operand));
@@ -193,6 +212,8 @@ static void lower_simple_binary_inst(asm_instruction_type inst_type,
   list_push_back(asm_instructions, inst);
 }
 
+//! Inserts a series of instructions into `asm_instructions` that multplies
+//! `lhs` by `rhs` and stores the result in `dst`.
 static void lower_mul(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
                       list* asm_instructions) {
   // mov lhs, dst
@@ -214,6 +235,8 @@ static void lower_mul(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
   }
 }
 
+//! Inserts a series of instructions into `asm_instructions` that divides
+//! `lhs` by `rhs` and stores the result in `dst`.
 static void lower_div(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
                       list* asm_instructions, bool want_remainder) {
   // mov lhs, eax
@@ -239,6 +262,9 @@ static void lower_div(asm_operand* lhs, asm_operand* rhs, asm_operand* dst,
              asm_instructions);
 }
 
+//! Inserts a series of instructions into `asm_instructions` that shifts
+//! `lhs` by `rhs` bits and stores the result in `dst`. Shifts left if `is_left`
+//! is true, otherwise shifts right.
 static void lower_bit_shift(asm_operand* lhs, asm_operand* rhs,
                             asm_operand* dst, list* asm_instructions,
                             bool is_left) {
@@ -257,6 +283,8 @@ static void lower_bit_shift(asm_operand* lhs, asm_operand* rhs,
   list_push_back(asm_instructions, inst);
 }
 
+//! Returns the corresponding operand given `ir_val`. If `ir_val` is a constant,
+//! returns an immediate, otherwise returns a stack address.
 static asm_operand* lower_ir_val(ir_val* ir_val, stack_allocator* alloc) {
   asm_operand* opnd = NULL;
   if (!ir_val->is_constant) {
@@ -270,6 +298,8 @@ static asm_operand* lower_ir_val(ir_val* ir_val, stack_allocator* alloc) {
   return opnd;
 }
 
+//! Converts return `ir_instruction` into a series of assembly instructions.
+//! Inserts them into `asm_instructions`.
 static void lower_ir_return(ir_instruction* ir_instruction,
                             stack_allocator* alloc, list* asm_instructions) {
   // mov(val, reg(ax))
@@ -281,6 +311,8 @@ static void lower_ir_return(ir_instruction* ir_instruction,
   insert_ret(asm_instructions);
 }
 
+//! Converts unary `ir_instruction` into assembly instructions. Inserts them
+//! into `asm_instructions`.
 static void lower_ir_unary(ir_instruction* ir_instruction,
                            stack_allocator* alloc, list* asm_instructions) {
   // mov(src, dst)
@@ -301,6 +333,8 @@ static void lower_ir_unary(ir_instruction* ir_instruction,
   }
 }
 
+//! Converts binary `ir_instruction` into assembly instructions. Inserts them
+//! into `asm_instructions`.
 static void lower_ir_binary(ir_instruction* ir_instruction,
                             stack_allocator* alloc, list* asm_instructions) {
   // mov(lhs, dst)
@@ -343,6 +377,8 @@ static void lower_ir_binary(ir_instruction* ir_instruction,
   }
 }
 
+//! Converts `ir_instruction` into assembly instructions. Inserts them into
+//! `asm_instructions`.
 static void lower_ir_instruction(ir_instruction* ir_instruction,
                                  stack_allocator* alloc,
                                  list* asm_instructions) {
@@ -383,6 +419,7 @@ static asm_node* lower_ir(ir_node* ir) {
   return node;
 }
 
+//! Like `printf` but automatically prints a new line at the end.
 static void println(FILE* f, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
@@ -391,6 +428,7 @@ static void println(FILE* f, char* fmt, ...) {
   fprintf(f, "\n");
 }
 
+//! Returns the text representation for `asm_operand`.
 static char* emit_asm_operand(asm_operand* asm_operand) {
   if (!asm_operand) {
     return NULL;
@@ -418,6 +456,7 @@ static char* emit_asm_operand(asm_operand* asm_operand) {
   return str;
 }
 
+//! Returns the text representation for `asm_instruction`.
 static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
   char* src = emit_asm_operand(asm_instruction->src);
   char* dst = emit_asm_operand(asm_instruction->dst);
@@ -485,6 +524,8 @@ static void emit_asm_func_def(FILE* f, asm_func_def* asm_func_def) {
   }
 }
 
+//! Destroys an `asm_instruction` and frees all of its allocated memories.
+//! `data` must be an `asm_instruction`.
 static void destroy_asm_instruction(void* data) {
   asm_instruction* inst = (asm_instruction*)data;
   free(inst->src);
@@ -492,17 +533,20 @@ static void destroy_asm_instruction(void* data) {
   free(inst);
 }
 
+//! Destroys `asm_func_def`.
 static void destroy_asm_func_def(asm_func_def* asm_func_def) {
   // We don't free name here because it's owned by IR node.
   list_destroy(asm_func_def->instructions, destroy_asm_instruction);
   free(asm_func_def);
 }
 
+//! Destroys asm `node`.
 static void destroy_asm_node(asm_node* node) {
   destroy_asm_func_def(node->func_def);
   free(node);
 }
 
+//! Given `ir`, translates it into x86_64 assembly and writes the output to `f`.
 void emit(FILE* f, ir_node* ir) {
   asm_node* node = lower_ir(ir);
   emit_asm_func_def(f, node->func_def);
