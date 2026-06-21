@@ -377,6 +377,24 @@ static bool get_binary_op_type(token* tok, ast_operator_type* op_type) {
   } else if (is_token_string_match(tok, ">>")) {
     *op_type = OP_SHR;
     return true;
+  } else if (is_token_string_match(tok, "<")) {
+    *op_type = OP_LT;
+    return true;
+  } else if (is_token_string_match(tok, "<=")) {
+    *op_type = OP_LE;
+    return true;
+  } else if (is_token_string_match(tok, ">")) {
+    *op_type = OP_GT;
+    return true;
+  } else if (is_token_string_match(tok, ">=")) {
+    *op_type = OP_GE;
+    return true;
+  } else if (is_token_string_match(tok, "==")) {
+    *op_type = OP_EQ;
+    return true;
+  } else if (is_token_string_match(tok, "!=")) {
+    *op_type = OP_NE;
+    return true;
   } else if (is_token_string_match(tok, "&")) {
     *op_type = OP_BITAND;
     return true;
@@ -385,6 +403,12 @@ static bool get_binary_op_type(token* tok, ast_operator_type* op_type) {
     return true;
   } else if (is_token_string_match(tok, "|")) {
     *op_type = OP_BITOR;
+    return true;
+  } else if (is_token_string_match(tok, "&&")) {
+    *op_type = OP_AND;
+    return true;
+  } else if (is_token_string_match(tok, "||")) {
+    *op_type = OP_OR;
     return true;
   }
   return false;
@@ -441,6 +465,8 @@ static void init_precedence(void) {
   PRECEDENCE[OP_BITAND] = 8;
   PRECEDENCE[OP_BITXOR] = 7;
   PRECEDENCE[OP_BITOR] = 6;
+  PRECEDENCE[OP_AND] = 5;
+  PRECEDENCE[OP_OR] = 4;
 }
 
 //! Returns the operator precedence of `op_type`.
@@ -497,6 +523,8 @@ static void init_associativity(void) {
   ASSOC[OP_BITAND] = LEFT;
   ASSOC[OP_BITXOR] = LEFT;
   ASSOC[OP_BITOR] = LEFT;
+  ASSOC[OP_AND] = LEFT;
+  ASSOC[OP_OR] = LEFT;
 }
 
 //! Returns the operator associativity of `op_type`.
