@@ -406,7 +406,7 @@ static uint64_t* PRECEDENCE = NULL;
 
 //! Initializes `PRECEDENCE`. Bigger number means higher precedence.
 static void init_precedence(void) {
-  PRECEDENCE = malloc_safe(50 * sizeof(ast_operator_type));
+  PRECEDENCE = malloc_safe(50 * sizeof(uint64_t));
 
   PRECEDENCE[OP_POSTINC] = 15;
   PRECEDENCE[OP_POSTDEC] = 15;
@@ -464,7 +464,7 @@ static op_assoc* ASSOC = NULL;
 
 //! Initializes `ASSOC`.
 static void init_associativity(void) {
-  ASSOC = malloc_safe(50 * sizeof(ast_operator_type));
+  ASSOC = malloc_safe(50 * sizeof(op_assoc));
 
   ASSOC[OP_POSTINC] = LEFT;
   ASSOC[OP_POSTDEC] = LEFT;
