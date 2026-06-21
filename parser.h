@@ -60,12 +60,28 @@ typedef enum ast_operator_type {
   OP_SHL,
   //! Bit right shift ">>"
   OP_SHR,
+  //! Relational less than "<"
+  OP_LT,
+  //! Relational less than or equal to "<="
+  OP_LE,
+  //! Relational greater than ">"
+  OP_GT,
+  //! Relational greater than or equal to ">="
+  OP_GE,
+  //! Relational equal "=="
+  OP_EQ,
+  //! Relational not equal "!="
+  OP_NE,
   //! Bitwise and "&"
   OP_BITAND,
   //! Bitwise xor "^"
   OP_BITXOR,
   //! Bitwise or "|"
   OP_BITOR,
+  //! Logical and "&&"
+  OP_AND,
+  //! Logial or "||"
+  OP_OR,
 } ast_operator_type;
 
 typedef struct ast_operator {
