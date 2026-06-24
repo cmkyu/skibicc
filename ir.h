@@ -15,20 +15,34 @@ typedef struct ir_val {
   uint64_t ref_count;
 } ir_val;
 
+//! Represents the type of the IR instruction.
 typedef enum ir_instruction_type {
+  //! Return instruction.
   IR_RETURN,
+  //! Unary instruction.
   IR_UNARY,
+  //! Binary instruction.
   IR_BINARY,
+  //! Unconditional jump instruction.
+  IR_JMP,
+  //! Jump if zero instruction.
+  IR_JZ,
+  //! Jump if not zero instruction.
+  IR_JNZ,
+  //! Label.
+  IR_LABEL,
 } ir_instruction_type;
 
+//! Represents a single IR instruction.
 typedef struct ir_instruction {
   ir_instruction_type instruction_type;
+  //! Operator type. Only used for `IR_UNARY` and `IR_BINARY`.
   ast_operator* op;
-  // Populated if unary or binary `op`.
+  //! Left hand side. Or the "source" if the instruction only takes 1 operand.
   ir_val* lhs;
-  // Populated if binary `op`.
+  //! Right hand side. Only used for `IR_BINARY`.
   ir_val* rhs;
-  // Destination operand. NULL if not applicable to the instruction type.
+  //! Destination operand.
   ir_val* dst;
 } ir_instruction;
 

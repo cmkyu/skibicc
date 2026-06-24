@@ -10,28 +10,51 @@
 #include "errors.h"
 #include "parser.h"
 
-//! Variable name generator. Generated name will be formatted like:
-//! "1_", "2_", ... The number is incremented every time `name_generator_get` is
-//! called.
+//! Variable name and label name generator. Generated variable name will be
+//! formatted like: "1_", "2_", ... Generated label name will be formatted
+//! like "_label1", "_label2", ...
 typedef struct name_generator {
   //! Counter for tracking the number for the next name.
-  uint64_t count;
+  uint64_t name_count;
+  uint64_t label_count;
 } name_generator;
 
 //! Initializes the name generator.
-static void name_generator_init(name_generator* gen) { gen->count = 0; }
+static void name_generator_init(name_generator* gen) {
+  gen->name_count = 0;
+  gen->label_count = 0;
+}
 
 //! Returns a unique variable name together with its string length.
-static string_view name_generator_get(name_generator* gen) {
+static string_view name_generator_get_name(name_generator* gen) {
   char* data;
   size_t size;
   FILE* f = open_memstream(&data, &size);
   if (!f) {
     error("FATAL: generate_name(): open_memstream() failed.");
   }
-  ++gen->count;
+  ++gen->name_count;
   // Names are formatted like 1_, 2_, 3_,...
-  fprintf(f, "%" PRIu64 "_", gen->count);
+  fprintf(f, "%" PRIu64 "_", gen->name_count);
+  fclose(f);
+
+  string_view name;
+  name.data = data;
+  name.length = size;
+  return name;
+}
+
+//! Returns a unique label name together with its string length.
+static string_view name_generator_get_label(name_generator* gen) {
+  char* data;
+  size_t size;
+  FILE* f = open_memstream(&data, &size);
+  if (!f) {
+    error("FATAL: generate_name(): open_memstream() failed.");
+  }
+  ++gen->label_count;
+  // Names are formatted like _label1, _label2, ...
+  fprintf(f, "_label%" PRIu64, gen->name_count);
   fclose(f);
 
   string_view name;
@@ -43,7 +66,7 @@ static string_view name_generator_get(name_generator* gen) {
 static ir_val* create_ir_val_var(name_generator* gen) {
   ir_val* val = calloc_safe(/*nelem=*/1, sizeof(ir_val));
   val->is_constant = false;
-  val->val.var_name = name_generator_get(gen);
+  val->val.var_name = name_generator_get_name(gen);
   return val;
 }
 
