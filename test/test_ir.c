@@ -13,11 +13,7 @@ void tearDown(void) {}
 
 void verify_constant(ir_val* val, uint64_t expected) {
   TEST_ASSERT_EQUAL(true, val->is_constant);
-  ast_node* node = val->val.constant;
-  TEST_ASSERT_EQUAL(AST_CONST, node->node_type);
-  token* tok = node->node.consant->tok;
-  TEST_ASSERT_EQUAL(TK_ICONST, tok->token_type);
-  TEST_ASSERT_EQUAL(expected, tok->constant.int_val);
+  TEST_ASSERT_EQUAL(expected, val->val.constant);
 }
 
 void verify_var_name(ir_val* val, const char* expected) {

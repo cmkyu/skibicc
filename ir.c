@@ -70,10 +70,10 @@ static ir_val* create_ir_val_var(name_generator* gen) {
   return val;
 }
 
-static ir_val* create_ir_val_constant(ast_node* node) {
+static ir_val* create_ir_val_constant(uint64_t constant) {
   ir_val* val = calloc_safe(/*nelem=*/1, sizeof(ir_val));
   val->is_constant = true;
-  val->val.constant = node;
+  val->val.constant = constant;
   return val;
 }
 
@@ -82,8 +82,70 @@ static ir_val* dup_ir_val(ir_val* val) {
   return val;
 }
 
+static void emit_jump(string_view label, array* instructions) {
+  ir_instruction* inst = array_push_back(instructions);
+  inst->instruction_type = IR_JMP;
+  inst->label = label;
+}
+
+static void emit_cond_jump(ir_instruction_type jump_type, ir_val* condition,
+                           string_view label, array* instructions) {
+  ir_instruction* inst = array_push_back(instructions);
+  switch (jump_type) {
+    case IR_JZ:
+    case IR_JNZ:
+      inst->instruction_type = jump_type;
+      inst->lhs = condition;
+      inst->label = label;
+      break;
+    default:
+      error("FATAL: unsupported jump IR.");
+  }
+}
+
+static void emit_label(string_view label, array* instructions) {
+  ir_instruction* inst = array_push_back(instructions);
+  inst->instruction_type = IR_LABEL;
+  inst->label = label;
+}
+
+static void emit_copy(ir_val* src, ir_val* dst, array* instructions) {
+  ir_instruction* inst = array_push_back(instructions);
+  inst->instruction_type = IR_COPY;
+  inst->lhs = src;
+  inst->dst = dst;
+}
+
 // Forward declaration.
 static ir_val* emit_ir_instruction(ast_node*, array*, name_generator*);
+
+static void emit_logical_and_expression(ast_node* node, array* instructions,
+                                        name_generator* gen) {
+  string_view false_label = name_generator_get_label(gen);
+  string_view end_label = name_generator_get_label(gen);
+  ir_val* result = create_ir_val_var(gen);
+
+  // <instructions for e1>
+  // JumpIfZero(e1, false_label)
+  // <instructions for e2>
+  // JumpIfZero(e2, false_label)
+  // result = 1
+  // Jump(end)
+  // Label(false_label)
+  // result = 0
+  // Label(end_label)
+  ir_val* e1 =
+      emit_ir_instruction(node->node.expression->lhs, instructions, gen);
+  emit_cond_jump(IR_JZ, e1, false_label, instructions);
+  ir_val* e2 =
+      emit_ir_instruction(node->node.expression->rhs, instructions, gen);
+  emit_cond_jump(IR_JZ, e2, false_label, instructions);
+  emit_copy(create_ir_val_constant(1), result, instructions);
+  emit_jump(end_label, instructions);
+  emit_label(false_label, instructions);
+  emit_copy(create_ir_val_constant(0), result, instructions);
+  emit_label(end_label, instructions);
+}
 
 //! Assuming `node` is an expression node, emits the IR for the expression, and
 //! returns the IR node representing the destination (i.e., final result) of the
@@ -113,7 +175,7 @@ static ir_val* emit_ir_instruction(ast_node* node, array* instructions,
     return create_ir_val_var(gen);
   }
   if (node->node_type == AST_CONST) {
-    return create_ir_val_constant(node);
+    return create_ir_val_constant(node->node.consant->tok->constant.int_val);
   }
   if (node->node_type == AST_EXPR) {
     return emit_expression(node, instructions, gen);

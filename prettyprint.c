@@ -100,10 +100,7 @@ void prettyprint_ast(ast_node* ast) {
 
 static void prettyprint_ir_val(ir_val* val) {
   if (val->is_constant) {
-    token* tok = val->val.constant->node.consant->tok;
-    char* str = strndup(tok->loc, tok->size);
-    printf("constant(%s)", str);
-    free(str);
+    printf("constant(%zu)", val->val.constant);
     return;
   }
   printf("var(%s)", val->val.var_name.data);
@@ -142,12 +139,16 @@ static void prettyprint_ir_instructions(array* instructions) {
     printf("\t");
     ir_instruction* inst = array_at(instructions, i);
     ir_instruction_type inst_type = inst->instruction_type;
-    if (inst_type == IR_UNARY || inst_type == IR_BINARY) {
-      prettyprint_ir_arithmetic_instruction(inst);
-    } else if (inst_type == IR_RETURN) {
-      prettyprint_ir_return_instruction(inst);
-    } else {
-      error("Unknown instruction type: %d", inst->instruction_type);
+    switch (inst_type) {
+      case IR_UNARY:
+      case IR_BINARY:
+        prettyprint_ir_arithmetic_instruction(inst);
+        break;
+      case IR_RETURN:
+        prettyprint_ir_return_instruction(inst);
+        break;
+      default:
+        error("Unknown instruction type: %d", inst->instruction_type);
     }
     printf("\n");
   }

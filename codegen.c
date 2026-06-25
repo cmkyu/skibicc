@@ -292,9 +292,7 @@ static asm_operand* lower_ir_val(ir_val* ir_val, stack_allocator* alloc) {
     // TODO: Type checking required for the stack offset.
     opnd = stack_allocator_get(alloc, ir_val, /*offset=*/4);
   } else {
-    // TODO: this is extremely dumb and probably wrong. Fix it.
-    opnd = create_immediate(
-        ir_val->val.constant->node.consant->tok->constant.int_val);
+    opnd = create_immediate(ir_val->val.constant);
   }
   return opnd;
 }

@@ -10,7 +10,7 @@ typedef struct ir_val {
   bool is_constant;
   union {
     string_view var_name;
-    ast_node* constant;
+    uint64_t constant;
   } val;
   uint64_t ref_count;
 } ir_val;
@@ -23,6 +23,8 @@ typedef enum ir_instruction_type {
   IR_UNARY,
   //! Binary instruction.
   IR_BINARY,
+  //! Copy instruction.
+  IR_COPY,
   //! Unconditional jump instruction.
   IR_JMP,
   //! Jump if zero instruction.
@@ -44,6 +46,8 @@ typedef struct ir_instruction {
   ir_val* rhs;
   //! Destination operand.
   ir_val* dst;
+  //! Label name. Only used by jump instructions and `IR_LABEL`.
+  string_view label;
 } ir_instruction;
 
 typedef struct ir_func_def {
