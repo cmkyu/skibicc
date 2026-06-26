@@ -147,6 +147,34 @@ static void emit_logical_and_expression(ast_node* node, array* instructions,
   emit_label(end_label, instructions);
 }
 
+static void emit_logical_or_expression(ast_node* node, array* instructions,
+                                       name_generator* gen) {
+  string_view true_label = name_generator_get_label(gen);
+  string_view end_label = name_generator_get_label(gen);
+  ir_val* result = create_ir_val_var(gen);
+
+  // <instructions for e1>
+  // JumpIfNotZero(e1, true_label)
+  // <instructions for e2>
+  // JumpIfNotZero(e2, true_label)
+  // result = 0
+  // Jump(end)
+  // Label(true_label)
+  // result = 1
+  // Label(end_label)
+  ir_val* e1 =
+      emit_ir_instruction(node->node.expression->lhs, instructions, gen);
+  emit_cond_jump(IR_JNZ, e1, true_label, instructions);
+  ir_val* e2 =
+      emit_ir_instruction(node->node.expression->rhs, instructions, gen);
+  emit_cond_jump(IR_JNZ, e2, true_label, instructions);
+  emit_copy(create_ir_val_constant(0), result, instructions);
+  emit_jump(end_label, instructions);
+  emit_label(true_label, instructions);
+  emit_copy(create_ir_val_constant(1), result, instructions);
+  emit_label(end_label, instructions);
+}
+
 //! Assuming `node` is an expression node, emits the IR for the expression, and
 //! returns the IR node representing the destination (i.e., final result) of the
 //! expression.
