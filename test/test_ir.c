@@ -141,10 +141,20 @@ void test_ir_bit_ops(void) {
   destroy_tokens(&tokens);
 }
 
+void test_ir_logical_ops(void) {
+  char text[] = "int main(void){ return 1 * 2 && 3 + 4;}";
+  array tokens = lex(text, "test.c");
+  ast_node* ast = parse(&tokens);
+  ir_node* ir = emit_ir(ast);
+  prettyprint_ir(ir);
+  // TODO: Finish this test.
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_ir_unary_ops);
   RUN_TEST(test_ir_binary_ops);
   RUN_TEST(test_ir_bit_ops);
+  RUN_TEST(test_ir_logical_ops);
   return UNITY_END();
 }

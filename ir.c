@@ -54,7 +54,7 @@ static string_view name_generator_get_label(name_generator* gen) {
   }
   ++gen->label_count;
   // Names are formatted like _label1, _label2, ...
-  fprintf(f, "_label%" PRIu64, gen->name_count);
+  fprintf(f, "_label%" PRIu64, gen->label_count);
   fclose(f);
 
   string_view name;
@@ -119,8 +119,8 @@ static void emit_copy(ir_val* src, ir_val* dst, array* instructions) {
 // Forward declaration.
 static ir_val* emit_ir_instruction(ast_node*, array*, name_generator*);
 
-static void emit_logical_and_expression(ast_node* node, array* instructions,
-                                        name_generator* gen) {
+static ir_val* emit_logical_and_expression(ast_node* node, array* instructions,
+                                           name_generator* gen) {
   string_view false_label = name_generator_get_label(gen);
   string_view end_label = name_generator_get_label(gen);
   ir_val* result = create_ir_val_var(gen);
@@ -145,10 +145,11 @@ static void emit_logical_and_expression(ast_node* node, array* instructions,
   emit_label(false_label, instructions);
   emit_copy(create_ir_val_constant(0), result, instructions);
   emit_label(end_label, instructions);
+  return result;
 }
 
-static void emit_logical_or_expression(ast_node* node, array* instructions,
-                                       name_generator* gen) {
+static ir_val* emit_logical_or_expression(ast_node* node, array* instructions,
+                                          name_generator* gen) {
   string_view true_label = name_generator_get_label(gen);
   string_view end_label = name_generator_get_label(gen);
   ir_val* result = create_ir_val_var(gen);
@@ -173,6 +174,7 @@ static void emit_logical_or_expression(ast_node* node, array* instructions,
   emit_label(true_label, instructions);
   emit_copy(create_ir_val_constant(1), result, instructions);
   emit_label(end_label, instructions);
+  return result;
 }
 
 //! Assuming `node` is an expression node, emits the IR for the expression, and
@@ -180,13 +182,21 @@ static void emit_logical_or_expression(ast_node* node, array* instructions,
 //! expression.
 static ir_val* emit_expression(ast_node* node, array* instructions,
                                name_generator* gen) {
+  ast_operator* op = node->node.expression->op;
+  if (op->op_type == OP_AND) {
+    return emit_logical_and_expression(node, instructions, gen);
+  }
+  if (op->op_type == OP_OR) {
+    return emit_logical_or_expression(node, instructions, gen);
+  }
+
   ir_val* lhs =
       emit_ir_instruction(node->node.expression->lhs, instructions, gen);
   ir_val* rhs =
       emit_ir_instruction(node->node.expression->rhs, instructions, gen);
   ir_instruction* inst = array_push_back(instructions);
   inst->instruction_type = (rhs == NULL ? IR_UNARY : IR_BINARY);
-  inst->op = node->node.expression->op;
+  inst->op = op;
   inst->lhs = lhs;
   inst->rhs = rhs;
   inst->dst = create_ir_val_var(gen);
@@ -269,6 +279,9 @@ static void destroy_ir_instruction(ir_instruction* ir_instruction) {
   destroy_ir_val(ir_instruction->lhs);
   destroy_ir_val(ir_instruction->rhs);
   destroy_ir_val(ir_instruction->dst);
+  if (ir_instruction->instruction_type == IR_LABEL) {
+    free(ir_instruction->label.data);
+  }
 }
 
 //! Frees all memories allocated by `ir_func_def` and its underlying members.

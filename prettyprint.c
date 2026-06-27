@@ -133,6 +133,33 @@ static void prettyprint_ir_return_instruction(ir_instruction* inst) {
   }
 }
 
+static void prettyprint_ir_copy_instruction(ir_instruction* inst) {
+  printf("copy ");
+  prettyprint_ir_val(inst->lhs);
+  printf(", ");
+  prettyprint_ir_val(inst->dst);
+}
+
+static void prettyprint_ir_jmp_instruction(ir_instruction* inst) {
+  printf("jmp %s", inst->label.data);
+}
+
+static void prettyprint_ir_jz_instruction(ir_instruction* inst) {
+  printf("jz ");
+  prettyprint_ir_val(inst->lhs);
+  printf(", @%s", inst->label.data);
+}
+
+static void prettyprint_ir_jnz_instruction(ir_instruction* inst) {
+  printf("jnz ");
+  prettyprint_ir_val(inst->lhs);
+  printf(", @%s", inst->label.data);
+}
+
+static void prettyprint_ir_label(ir_instruction* inst) {
+  printf("%s: ", inst->label.data);
+}
+
 static void prettyprint_ir_instructions(array* instructions) {
   size_t sz = instructions->size;
   for (size_t i = 0; i < sz; ++i) {
@@ -140,12 +167,27 @@ static void prettyprint_ir_instructions(array* instructions) {
     ir_instruction* inst = array_at(instructions, i);
     ir_instruction_type inst_type = inst->instruction_type;
     switch (inst_type) {
+      case IR_RETURN:
+        prettyprint_ir_return_instruction(inst);
+        break;
       case IR_UNARY:
       case IR_BINARY:
         prettyprint_ir_arithmetic_instruction(inst);
         break;
-      case IR_RETURN:
-        prettyprint_ir_return_instruction(inst);
+      case IR_COPY:
+        prettyprint_ir_copy_instruction(inst);
+        break;
+      case IR_JMP:
+        prettyprint_ir_jmp_instruction(inst);
+        break;
+      case IR_JZ:
+        prettyprint_ir_jz_instruction(inst);
+        break;
+      case IR_JNZ:
+        prettyprint_ir_jnz_instruction(inst);
+        break;
+      case IR_LABEL:
+        prettyprint_ir_label(inst);
         break;
       default:
         error("Unknown instruction type: %d", inst->instruction_type);
