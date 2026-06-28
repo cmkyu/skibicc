@@ -123,7 +123,6 @@ static ir_val* emit_logical_and_expression(ast_node* node, array* instructions,
                                            name_generator* gen) {
   string_view false_label = name_generator_get_label(gen);
   string_view end_label = name_generator_get_label(gen);
-  ir_val* result = create_ir_val_var(gen);
 
   // <instructions for e1>
   // JumpIfZero(e1, false_label)
@@ -140,19 +139,19 @@ static ir_val* emit_logical_and_expression(ast_node* node, array* instructions,
   ir_val* e2 =
       emit_ir_instruction(node->node.expression->rhs, instructions, gen);
   emit_cond_jump(IR_JZ, e2, false_label, instructions);
+  ir_val* result = create_ir_val_var(gen);
   emit_copy(create_ir_val_constant(1), result, instructions);
   emit_jump(end_label, instructions);
   emit_label(false_label, instructions);
-  emit_copy(create_ir_val_constant(0), result, instructions);
+  emit_copy(create_ir_val_constant(0), dup_ir_val(result), instructions);
   emit_label(end_label, instructions);
-  return result;
+  return dup_ir_val(result);
 }
 
 static ir_val* emit_logical_or_expression(ast_node* node, array* instructions,
                                           name_generator* gen) {
   string_view true_label = name_generator_get_label(gen);
   string_view end_label = name_generator_get_label(gen);
-  ir_val* result = create_ir_val_var(gen);
 
   // <instructions for e1>
   // JumpIfNotZero(e1, true_label)
@@ -169,12 +168,13 @@ static ir_val* emit_logical_or_expression(ast_node* node, array* instructions,
   ir_val* e2 =
       emit_ir_instruction(node->node.expression->rhs, instructions, gen);
   emit_cond_jump(IR_JNZ, e2, true_label, instructions);
+  ir_val* result = create_ir_val_var(gen);
   emit_copy(create_ir_val_constant(0), result, instructions);
   emit_jump(end_label, instructions);
   emit_label(true_label, instructions);
-  emit_copy(create_ir_val_constant(1), result, instructions);
+  emit_copy(create_ir_val_constant(1), dup_ir_val(result), instructions);
   emit_label(end_label, instructions);
-  return result;
+  return dup_ir_val(result);
 }
 
 //! Assuming `node` is an expression node, emits the IR for the expression, and

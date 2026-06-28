@@ -6,6 +6,7 @@
 #include "../parser.h"
 #include "../prettyprint.h"
 #include "../unity/unity.h"
+#include "strings.h"
 
 void setUp(void) {}
 
@@ -19,6 +20,10 @@ void verify_constant(ir_val* val, uint64_t expected) {
 void verify_var_name(ir_val* val, const char* expected) {
   TEST_ASSERT_EQUAL(false, val->is_constant);
   TEST_ASSERT_EQUAL_STRING(expected, val->val.var_name.data);
+}
+
+void verify_label_name(string_view label, const char* expected) {
+  TEST_ASSERT_EQUAL_STRING(expected, label.data);
 }
 
 void test_ir_unary_ops(void) {
@@ -147,7 +152,66 @@ void test_ir_logical_ops(void) {
   ast_node* ast = parse(&tokens);
   ir_node* ir = emit_ir(ast);
   prettyprint_ir(ir);
-  // TODO: Finish this test.
+
+  const char* name = ir->function_definition->name;
+  TEST_ASSERT_EQUAL_STRING("main", name);
+
+  array* instructions = ir->function_definition->instructions;
+  TEST_ASSERT_EQUAL(10, instructions->size);
+
+  ir_instruction* inst = array_at(instructions, 0);
+  TEST_ASSERT_EQUAL(IR_BINARY, inst->instruction_type);
+  TEST_ASSERT_EQUAL(OP_MUL, inst->op->op_type);
+  verify_constant(inst->lhs, 1);
+  verify_constant(inst->rhs, 2);
+  verify_var_name(inst->dst, "1_");
+
+  inst = array_at(instructions, 1);
+  TEST_ASSERT_EQUAL(IR_JZ, inst->instruction_type);
+  verify_var_name(inst->lhs, "1_");
+  verify_label_name(inst->label, "_label1");
+
+  inst = array_at(instructions, 2);
+  TEST_ASSERT_EQUAL(IR_BINARY, inst->instruction_type);
+  TEST_ASSERT_EQUAL(OP_ADD, inst->op->op_type);
+  verify_constant(inst->lhs, 3);
+  verify_constant(inst->rhs, 4);
+  verify_var_name(inst->dst, "2_");
+
+  inst = array_at(instructions, 3);
+  TEST_ASSERT_EQUAL(IR_JZ, inst->instruction_type);
+  verify_var_name(inst->lhs, "2_");
+  verify_label_name(inst->label, "_label1");
+
+  inst = array_at(instructions, 4);
+  TEST_ASSERT_EQUAL(IR_COPY, inst->instruction_type);
+  verify_constant(inst->lhs, 1);
+  verify_var_name(inst->dst, "3_");
+
+  inst = array_at(instructions, 5);
+  TEST_ASSERT_EQUAL(IR_JMP, inst->instruction_type);
+  verify_label_name(inst->label, "_label2");
+
+  inst = array_at(instructions, 6);
+  TEST_ASSERT_EQUAL(IR_LABEL, inst->instruction_type);
+  verify_label_name(inst->label, "_label1");
+
+  inst = array_at(instructions, 7);
+  TEST_ASSERT_EQUAL(IR_COPY, inst->instruction_type);
+  verify_constant(inst->lhs, 0);
+  verify_var_name(inst->dst, "3_");
+
+  inst = array_at(instructions, 8);
+  TEST_ASSERT_EQUAL(IR_LABEL, inst->instruction_type);
+  verify_label_name(inst->label, "_label2");
+
+  inst = array_at(instructions, 9);
+  TEST_ASSERT_EQUAL(IR_RETURN, inst->instruction_type);
+  verify_var_name(inst->lhs, "3_");
+
+  ir_destroy(ir);
+  ast_destroy(ast);
+  destroy_tokens(&tokens);
 }
 
 int main(void) {
