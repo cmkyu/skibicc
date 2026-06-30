@@ -14,40 +14,71 @@
 #include "ir.h"
 #include "list.h"
 
-//! Given a `reg_size`, returns the corresponding ecx register name.
-static const char* reg_cx_to_string(asm_register_size reg_size) {
+//! Prints eax, ebx, ecx, or edx to `f` given `reg_size`. `stem` is the letter
+//! that represents that register: a, b, c, d.
+static void print_reg_internal(FILE* f, const char* stem,
+                               asm_register_size reg_size) {
   switch (reg_size) {
     case _8L:
-      return "cl";
+      fprintf(f, "%%%sl", stem);
+      break;
     case _8H:
-      return "ch";
+      fprintf(f, "%%%sh", stem);
+      break;
     case _16:
-      return "cx";
+      fprintf(f, "%%%sx", stem);
+      break;
     case _32:
-      return "ecx";
+      fprintf(f, "%%e%sx", stem);
+      break;
     case _64:
-      return "rcx";
+      fprintf(f, "%%r%sx", stem);
+      break;
   }
-  error("unexpected asm_register_type");
-  return NULL;
 }
 
-//! Given a register `reg`, returns its name.
-static const char* asm_register_to_string(asm_register reg) {
+//! Prints regular registers (r8 to r15) given `reg_size`. `stem` is the letter
+//! r plus the number that represents that register: "r8" to "r15".
+static void print_r_reg_internal(FILE* f, const char* stem,
+                                 asm_register_size reg_size) {
+  switch (reg_size) {
+    case _8L:
+      fprintf(f, "%%%sb", stem);
+      break;
+    case _8H:
+      error("unexpected asm_register_type");
+      break;
+    case _16:
+      fprintf(f, "%%%sw", stem);
+      break;
+    case _32:
+      fprintf(f, "%%%sd", stem);
+      break;
+    case _64:
+      fprintf(f, "%%%s", stem);
+      break;
+  }
+}
+
+//! Given a register `reg`, prints its name to `f`.
+static void print_asm_register(FILE* f, asm_register reg) {
   switch (reg.type) {
     case AX:
-      return "eax";
+      print_reg_internal(f, /*stem=*/"a", reg.size);
+      break;
     case CX:
-      return reg_cx_to_string(reg.size);
+      print_reg_internal(f, /*stem=*/"c", reg.size);
+      break;
     case DX:
-      return "edx";
+      print_reg_internal(f, /*stem=*/"d", reg.size);
+      break;
     case R10:
-      return "r10d";
+      print_r_reg_internal(f, /*stem=*/"r10", reg.size);
+      break;
     case R11:
-      return "r11d";
+      print_r_reg_internal(f, /*stem=*/"r11", reg.size);
+      break;
   }
-  error("Unimplemented reg");
-  return NULL;
 }
 
 //! Initializes `alloc`.
@@ -448,7 +479,7 @@ static char* emit_asm_operand(asm_operand* asm_operand) {
       fprintf(f, "%" PRId64 "(%%rbp)", asm_operand->operand.offset);
       break;
     case ASM_OPND_REG:
-      fprintf(f, "%%%s", asm_register_to_string(asm_operand->operand.reg));
+      print_asm_register(f, asm_operand->operand.reg);
       break;
   }
   fclose(f);
