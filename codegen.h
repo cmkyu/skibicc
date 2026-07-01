@@ -57,6 +57,22 @@ typedef struct asm_operand {
   } operand;
 } asm_operand;
 
+//! Condition codes
+typedef enum asm_cond_code {
+  //! Equal
+  E,
+  //! Not equal
+  NE,
+  //! Less than
+  L,
+  //! Less than or equal to
+  LE,
+  //! Greater than
+  G,
+  //! Greater than or equal to
+  GE,
+} asm_cond_code;
+
 typedef enum asm_instruction_type {
   ASM_MOV,
   ASM_NEG,
