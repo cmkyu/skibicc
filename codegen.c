@@ -213,6 +213,37 @@ static void insert_not(asm_operand* dst, list* asm_instructions) {
   list_push_back(asm_instructions, inst);
 }
 
+//! Inserts a cmp instruction, adding intermediate mov instructions as needed.
+static void insert_cmp(asm_operand* src, asm_operand* dst,
+                       list* asm_instructions) {
+  if (src->operand_type == ASM_OPND_STACK &&
+      dst->operand_type == ASM_OPND_STACK) {
+    // Both are stack addreses. Not allowed. Mov src to r10.
+    insert_mov(src, create_register(R10, _32), asm_instructions);
+    src = create_register(R10, _32);
+  }
+  if (dst->operand_type == ASM_OPND_IMM) {
+    // dst cannot be an immediate.
+    insert_mov(dst, create_register(R11, _32), asm_instructions);
+    dst = create_register(R11, _32);
+  }
+
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->instruction_type = ASM_CMP;
+  inst->src = src;
+  inst->dst = dst;
+  list_push_back(asm_instructions, inst);
+}
+
+static void insert_jmp_cond_code(asm_cond_code code, const char* label,
+                                 list* asm_instructions) {
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->instruction_type = ASM_JMPCC;
+  inst->code = code;
+  inst->label = label;
+  list_push_back(asm_instructions, inst);
+}
+
 //! Returns a deep copy of `opnd`.
 static asm_operand* dup_operand(asm_operand* opnd) {
   asm_operand* res = malloc_safe(sizeof(asm_operand));
@@ -407,6 +438,28 @@ static void lower_ir_binary(ir_instruction* ir_instruction,
   }
 }
 
+static void lower_ir_jmp(ir_instruction* ir_instruction,
+                         list* asm_instructions) {
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->instruction_type = ASM_JMP;
+  inst->label = ir_instruction->label.data;
+  list_push_back(asm_instructions, inst);
+}
+
+static void lower_ir_jz(ir_instruction* ir_instruction, stack_allocator* alloc,
+                        list* asm_instructions) {
+  asm_operand* cond = lower_ir_val(ir_instruction->lhs, alloc);
+  insert_cmp(create_immediate(0), cond, asm_instructions);
+  insert_jmp_cond_code(CC_E, ir_instruction->label.data, asm_instructions);
+}
+
+static void lower_ir_jnz(ir_instruction* ir_instruction, stack_allocator* alloc,
+                         list* asm_instructions) {
+  asm_operand* cond = lower_ir_val(ir_instruction->lhs, alloc);
+  insert_cmp(create_immediate(0), cond, asm_instructions);
+  insert_jmp_cond_code(CC_NE, ir_instruction->label.data, asm_instructions);
+}
+
 //! Converts `ir_instruction` into assembly instructions. Inserts them into
 //! `asm_instructions`.
 static void lower_ir_instruction(ir_instruction* ir_instruction,
@@ -422,6 +475,16 @@ static void lower_ir_instruction(ir_instruction* ir_instruction,
       break;
     case IR_BINARY:
       lower_ir_binary(ir_instruction, alloc, asm_instructions);
+      break;
+    case IR_JMP:
+      lower_ir_jmp(ir_instruction, asm_instructions);
+      break;
+    case IR_JZ:
+      lower_ir_jz(ir_instruction, alloc, asm_instructions);
+      break;
+    case IR_JNZ:
+      lower_ir_jnz(ir_instruction, alloc, asm_instructions);
+      break;
   }
 }
 

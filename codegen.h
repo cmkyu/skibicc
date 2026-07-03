@@ -41,9 +41,13 @@ typedef struct asm_register {
   asm_register_size size;
 } asm_register;
 
+//! Type of operand of assembly instructions.
 typedef enum asm_operand_type {
+  //! Immediate (constant) value.
   ASM_OPND_IMM,
+  //! Register.
   ASM_OPND_REG,
+  //! Stack address.
   ASM_OPND_STACK,
 } asm_operand_type;
 
@@ -60,17 +64,17 @@ typedef struct asm_operand {
 //! Condition codes
 typedef enum asm_cond_code {
   //! Equal
-  E,
+  CC_E,
   //! Not equal
-  NE,
+  CC_NE,
   //! Less than
-  L,
+  CC_L,
   //! Less than or equal to
-  LE,
+  CC_LE,
   //! Greater than
-  G,
+  CC_G,
   //! Greater than or equal to
-  GE,
+  CC_GE,
 } asm_cond_code;
 
 typedef enum asm_instruction_type {
@@ -87,7 +91,15 @@ typedef enum asm_instruction_type {
   ASM_AND,
   ASM_OR,
   ASM_XOR,
+  //! cmp
+  ASM_CMP,
+  //! Unconditional jump (jmp).
+  ASM_JMP,
+  //! Jump with conditions (jz, jnz, etc).
+  ASM_JMPCC,
+  //! Allocate stack space. Alias for subtracting the stack register.
   ASM_ALLOCSTACK,
+  //! ret
   ASM_RETURN,
 } asm_instruction_type;
 
@@ -95,6 +107,11 @@ typedef struct asm_instruction {
   asm_instruction_type instruction_type;
   asm_operand* src;
   asm_operand* dst;
+  //! Only used by jump instructions.
+  const char* label;
+  //! Only used by conditional jump instructions and conditional set
+  //! instructions.
+  asm_cond_code code;
 } asm_instruction;
 
 typedef struct asm_func_def {
