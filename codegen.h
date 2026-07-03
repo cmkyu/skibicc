@@ -104,8 +104,11 @@ typedef enum asm_instruction_type {
 } asm_instruction_type;
 
 typedef struct asm_instruction {
+  //! Type of the assembly instruction.
   asm_instruction_type instruction_type;
+  //! Source operand. The 1st operand from left to right (AT&T syntax).
   asm_operand* src;
+  //! Destination operand. The 2nd operand from left to right (AT&T syntax).
   asm_operand* dst;
   //! Only used by jump instructions.
   const char* label;
