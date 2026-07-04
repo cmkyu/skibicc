@@ -64,15 +64,15 @@ typedef struct asm_operand {
 //! Condition codes
 typedef enum asm_cond_code {
   //! Equal
-  CC_E,
+  CC_EQ,
   //! Not equal
   CC_NE,
   //! Less than
-  CC_L,
+  CC_LT,
   //! Less than or equal to
   CC_LE,
   //! Greater than
-  CC_G,
+  CC_GT,
   //! Greater than or equal to
   CC_GE,
 } asm_cond_code;
@@ -97,6 +97,8 @@ typedef enum asm_instruction_type {
   ASM_JMP,
   //! Jump with conditions (jz, jnz, etc).
   ASM_JMPCC,
+  //! Condutional set instructions (sete, setne, etc.)
+  ASM_SETCC,
   //! Allocate stack space. Alias for subtracting the stack register.
   ASM_ALLOCSTACK,
   //! ret

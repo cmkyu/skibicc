@@ -244,11 +244,28 @@ static void insert_jmp_cond_code(asm_cond_code code, const char* label,
   list_push_back(asm_instructions, inst);
 }
 
+static void insert_set_cond_code(asm_cond_code code, asm_operand* src,
+                                 list* asm_instructions) {
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->instruction_type = ASM_SETCC;
+  inst->code = code;
+  inst->src = src;
+  list_push_back(asm_instructions, inst);
+}
+
 //! Returns a deep copy of `opnd`.
 static asm_operand* dup_operand(asm_operand* opnd) {
   asm_operand* res = malloc_safe(sizeof(asm_operand));
   memcpy(res, opnd, sizeof(asm_operand));
   return res;
+}
+
+static void lower_relational(asm_cond_code code, asm_operand* lhs,
+                             asm_operand* rhs, asm_operand* dst,
+                             list* asm_instructions) {
+  insert_cmp(rhs, lhs, asm_instructions);
+  insert_mov(create_immediate(0), dst, asm_instructions);
+  insert_set_cond_code(code, dup_operand(dst), asm_instructions);
 }
 
 //! Inserts into `asm_instructions` an `inst_type` instruction with a binary
@@ -424,14 +441,32 @@ static void lower_ir_binary(ir_instruction* ir_instruction,
     case OP_SHR:
       lower_bit_shift(lhs, rhs, dst, asm_instructions, /*is_left=*/false);
       break;
+    case OP_LT:
+      lower_relational(CC_LT, lhs, rhs, dst, asm_instructions);
+      break;
+    case OP_LE:
+      lower_relational(CC_LE, lhs, rhs, dst, asm_instructions);
+      break;
+    case OP_GT:
+      lower_relational(CC_GT, lhs, rhs, dst, asm_instructions);
+      break;
+    case OP_GE:
+      lower_relational(CC_GE, lhs, rhs, dst, asm_instructions);
+      break;
+    case OP_EQ:
+      lower_relational(CC_EQ, lhs, rhs, dst, asm_instructions);
+      break;
+    case OP_NE:
+      lower_relational(CC_NE, lhs, rhs, dst, asm_instructions);
+      break;
     case OP_BITAND:
       lower_simple_binary_inst(ASM_AND, lhs, rhs, dst, asm_instructions);
       break;
-    case OP_BITOR:
-      lower_simple_binary_inst(ASM_OR, lhs, rhs, dst, asm_instructions);
-      break;
     case OP_BITXOR:
       lower_simple_binary_inst(ASM_XOR, lhs, rhs, dst, asm_instructions);
+      break;
+    case OP_BITOR:
+      lower_simple_binary_inst(ASM_OR, lhs, rhs, dst, asm_instructions);
       break;
     default:
       error("Unimplemented binary");
@@ -450,7 +485,7 @@ static void lower_ir_jz(ir_instruction* ir_instruction, stack_allocator* alloc,
                         list* asm_instructions) {
   asm_operand* cond = lower_ir_val(ir_instruction->lhs, alloc);
   insert_cmp(create_immediate(0), cond, asm_instructions);
-  insert_jmp_cond_code(CC_E, ir_instruction->label.data, asm_instructions);
+  insert_jmp_cond_code(CC_EQ, ir_instruction->label.data, asm_instructions);
 }
 
 static void lower_ir_jnz(ir_instruction* ir_instruction, stack_allocator* alloc,
