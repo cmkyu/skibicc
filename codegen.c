@@ -495,6 +495,21 @@ static void lower_ir_jnz(ir_instruction* ir_instruction, stack_allocator* alloc,
   insert_jmp_cond_code(CC_NE, ir_instruction->label.data, asm_instructions);
 }
 
+static void lower_ir_copy(ir_instruction* ir_instruction,
+                          stack_allocator* alloc, list* asm_instructions) {
+  asm_operand* src = lower_ir_val(ir_instruction->lhs, alloc);
+  asm_operand* dst = lower_ir_val(ir_instruction->dst, alloc);
+  insert_mov(src, dst, asm_instructions);
+}
+
+static void lower_ir_label(ir_instruction* ir_instruction,
+                           list* asm_instructions) {
+  asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
+  inst->instruction_type = ASM_LABEL;
+  inst->label = ir_instruction->label.data;
+  list_push_back(asm_instructions, inst);
+}
+
 //! Converts `ir_instruction` into assembly instructions. Inserts them into
 //! `asm_instructions`.
 static void lower_ir_instruction(ir_instruction* ir_instruction,
@@ -519,6 +534,12 @@ static void lower_ir_instruction(ir_instruction* ir_instruction,
       break;
     case IR_JNZ:
       lower_ir_jnz(ir_instruction, alloc, asm_instructions);
+      break;
+    case IR_COPY:
+      lower_ir_copy(ir_instruction, alloc, asm_instructions);
+      break;
+    case IR_LABEL:
+      lower_ir_label(ir_instruction, asm_instructions);
       break;
   }
 }
