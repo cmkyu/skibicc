@@ -591,7 +591,6 @@ static char* emit_asm_operand(asm_instruction_type inst_type,
     error("FATAL: emit_asm_operand(): open_memstream() failed.");
   }
 
-  asm_register reg;
   switch (asm_operand->operand_type) {
     case ASM_OPND_IMM:
       fprintf(f, "$%" PRId64, asm_operand->operand.immediate);
@@ -600,10 +599,9 @@ static char* emit_asm_operand(asm_instruction_type inst_type,
       fprintf(f, "%" PRId64 "(%%rbp)", asm_operand->operand.offset);
       break;
     case ASM_OPND_REG:
-      reg = asm_operand->operand.reg;
       if (inst_type == ASM_SETCC) {
         // set insutrctions only takes 1-byte registers.
-        reg.size = _8L;
+        asm_operand->operand.reg.size = _8L;
       }
       print_asm_register(f, asm_operand->operand.reg);
       break;
