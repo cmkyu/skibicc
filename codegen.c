@@ -578,7 +578,8 @@ static void println(FILE* f, char* fmt, ...) {
 }
 
 //! Returns the text representation for `asm_operand`.
-static char* emit_asm_operand(asm_operand* asm_operand) {
+static char* emit_asm_operand(asm_instruction_type inst_type,
+                              asm_operand* asm_operand) {
   if (!asm_operand) {
     return NULL;
   }
@@ -590,6 +591,7 @@ static char* emit_asm_operand(asm_operand* asm_operand) {
     error("FATAL: emit_asm_operand(): open_memstream() failed.");
   }
 
+  asm_register reg;
   switch (asm_operand->operand_type) {
     case ASM_OPND_IMM:
       fprintf(f, "$%" PRId64, asm_operand->operand.immediate);
@@ -598,6 +600,11 @@ static char* emit_asm_operand(asm_operand* asm_operand) {
       fprintf(f, "%" PRId64 "(%%rbp)", asm_operand->operand.offset);
       break;
     case ASM_OPND_REG:
+      reg = asm_operand->operand.reg;
+      if (inst_type == ASM_SETCC) {
+        // set insutrctions only takes 1-byte registers.
+        reg.size = _8L;
+      }
       print_asm_register(f, asm_operand->operand.reg);
       break;
   }
@@ -605,10 +612,47 @@ static char* emit_asm_operand(asm_operand* asm_operand) {
   return str;
 }
 
+static void emit_asm_cond_code(FILE* f, asm_cond_code code) {
+  switch (code) {
+    case CC_EQ:
+      fprintf(f, "e");
+      break;
+    case CC_NE:
+      fprintf(f, "ne");
+      break;
+    case CC_LT:
+      fprintf(f, "l");
+      break;
+    case CC_LE:
+      fprintf(f, "le");
+      break;
+    case CC_GT:
+      fprintf(f, "g");
+      break;
+    case CC_GE:
+      fprintf(f, "ge");
+      break;
+  }
+}
+
+static void emit_asm_jmpcc(FILE* f, asm_cond_code code, const char* label) {
+  fprintf(f, "j");
+  emit_asm_cond_code(f, code);
+  fprintf(f, " .L%s\n", label);
+}
+
+static void emit_asm_setcc(FILE* f, asm_cond_code code, char* src) {
+  fprintf(f, "set");
+  emit_asm_cond_code(f, code);
+  fprintf(f, " %s\n", src);
+}
+
 //! Returns the text representation for `asm_instruction`.
 static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
-  char* src = emit_asm_operand(asm_instruction->src);
-  char* dst = emit_asm_operand(asm_instruction->dst);
+  char* src =
+      emit_asm_operand(asm_instruction->instruction_type, asm_instruction->src);
+  char* dst =
+      emit_asm_operand(asm_instruction->instruction_type, asm_instruction->dst);
   switch (asm_instruction->instruction_type) {
     case ASM_MOV:
       println(f, "movl %s, %s", src, dst);
@@ -649,6 +693,18 @@ static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
     case ASM_XOR:
       println(f, "xorl %s, %s", src, dst);
       break;
+    case ASM_CMP:
+      println(f, "cmpl %s, %s", src, dst);
+      break;
+    case ASM_JMP:
+      println(f, "jmp .L%s", asm_instruction->label);
+      break;
+    case ASM_JMPCC:
+      emit_asm_jmpcc(f, asm_instruction->code, asm_instruction->label);
+      break;
+    case ASM_SETCC:
+      emit_asm_setcc(f, asm_instruction->code, src);
+      break;
     case ASM_ALLOCSTACK:
       println(f, "subq %s, %%rsp", src);
       break;
@@ -656,6 +712,9 @@ static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
       println(f, "movq %%rbp, %%rsp");
       println(f, "popq %%rbp");
       println(f, "ret");
+      break;
+    case ASM_LABEL:
+      println(f, ".L%s:", asm_instruction->label);
       break;
   }
   free(src);
