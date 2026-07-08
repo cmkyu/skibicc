@@ -473,6 +473,7 @@ static void lower_ir_binary(ir_instruction* ir_instruction,
   }
 }
 
+//! Converts IR unconditional jump instruction to assembly.
 static void lower_ir_jmp(ir_instruction* ir_instruction,
                          list* asm_instructions) {
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
@@ -481,6 +482,7 @@ static void lower_ir_jmp(ir_instruction* ir_instruction,
   list_push_back(asm_instructions, inst);
 }
 
+//! Converts IR jump if zero instruction to assembly.
 static void lower_ir_jz(ir_instruction* ir_instruction, stack_allocator* alloc,
                         list* asm_instructions) {
   asm_operand* cond = lower_ir_val(ir_instruction->lhs, alloc);
@@ -488,6 +490,7 @@ static void lower_ir_jz(ir_instruction* ir_instruction, stack_allocator* alloc,
   insert_jmp_cond_code(CC_EQ, ir_instruction->label.data, asm_instructions);
 }
 
+//! Converts IR jump if not zero instruction to assembly.
 static void lower_ir_jnz(ir_instruction* ir_instruction, stack_allocator* alloc,
                          list* asm_instructions) {
   asm_operand* cond = lower_ir_val(ir_instruction->lhs, alloc);
@@ -495,6 +498,7 @@ static void lower_ir_jnz(ir_instruction* ir_instruction, stack_allocator* alloc,
   insert_jmp_cond_code(CC_NE, ir_instruction->label.data, asm_instructions);
 }
 
+//! Converts IR copy instruction to assembly.
 static void lower_ir_copy(ir_instruction* ir_instruction,
                           stack_allocator* alloc, list* asm_instructions) {
   asm_operand* src = lower_ir_val(ir_instruction->lhs, alloc);
@@ -610,7 +614,8 @@ static char* emit_asm_operand(asm_instruction_type inst_type,
   return str;
 }
 
-static void emit_asm_cond_code(FILE* f, asm_cond_code code) {
+//! Prints the text representation of condition `code` to `f`.
+static void print_asm_cond_code(FILE* f, asm_cond_code code) {
   switch (code) {
     case CC_EQ:
       fprintf(f, "e");
@@ -633,15 +638,17 @@ static void emit_asm_cond_code(FILE* f, asm_cond_code code) {
   }
 }
 
-static void emit_asm_jmpcc(FILE* f, asm_cond_code code, const char* label) {
+//! Prints conditional jump instruction to `f`.
+static void print_asm_jmpcc(FILE* f, asm_cond_code code, const char* label) {
   fprintf(f, "j");
-  emit_asm_cond_code(f, code);
+  print_asm_cond_code(f, code);
   fprintf(f, " .L%s\n", label);
 }
 
+//! Prints conditional set instruction to `f`.
 static void emit_asm_setcc(FILE* f, asm_cond_code code, char* src) {
   fprintf(f, "set");
-  emit_asm_cond_code(f, code);
+  print_asm_cond_code(f, code);
   fprintf(f, " %s\n", src);
 }
 
@@ -698,7 +705,7 @@ static void emit_asm_instruction(FILE* f, asm_instruction* asm_instruction) {
       println(f, "jmp .L%s", asm_instruction->label);
       break;
     case ASM_JMPCC:
-      emit_asm_jmpcc(f, asm_instruction->code, asm_instruction->label);
+      print_asm_jmpcc(f, asm_instruction->code, asm_instruction->label);
       break;
     case ASM_SETCC:
       emit_asm_setcc(f, asm_instruction->code, src);
