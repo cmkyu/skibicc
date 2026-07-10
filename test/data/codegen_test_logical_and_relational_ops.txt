@@ -1,0 +1,66 @@
+.globl main
+main:
+pushq %rbp
+movq %rsp, %rbp
+subq $36, %rsp
+movl $2, %r11d
+cmpl $1, %r11d
+movl $0, -4(%rbp)
+setg -4(%rbp)
+cmpl $0, -4(%rbp)
+je .L_label5
+movl $3, %r11d
+cmpl $3, %r11d
+movl $0, -8(%rbp)
+sete -8(%rbp)
+cmpl $0, -8(%rbp)
+je .L_label5
+movl $1, -12(%rbp)
+jmp .L_label6
+.L_label5:
+movl $0, -12(%rbp)
+.L_label6:
+cmpl $0, -12(%rbp)
+jne .L_label3
+movl $3, %r11d
+cmpl $4, %r11d
+movl $0, -16(%rbp)
+setl -16(%rbp)
+cmpl $0, -16(%rbp)
+je .L_label7
+movl $5, %r11d
+cmpl $6, %r11d
+movl $0, -20(%rbp)
+setge -20(%rbp)
+cmpl $0, -20(%rbp)
+je .L_label7
+movl $1, -24(%rbp)
+jmp .L_label8
+.L_label7:
+movl $0, -24(%rbp)
+.L_label8:
+cmpl $0, -24(%rbp)
+jne .L_label3
+movl $0, -28(%rbp)
+jmp .L_label4
+.L_label3:
+movl $1, -28(%rbp)
+.L_label4:
+cmpl $0, -28(%rbp)
+jne .L_label1
+movl $8, %r11d
+cmpl $7, %r11d
+movl $0, -32(%rbp)
+setle -32(%rbp)
+cmpl $0, -32(%rbp)
+jne .L_label1
+movl $0, -36(%rbp)
+jmp .L_label2
+.L_label1:
+movl $1, -36(%rbp)
+.L_label2:
+movl -36(%rbp), %eax
+movq %rbp, %rsp
+popq %rbp
+ret
+.section .note.GNU-stack,"",@progbits

@@ -58,10 +58,10 @@ static int emit_code(char* path) {
   command = string_concat(
       5, "ld -o ", prog_path,
       " -m elf_x86_64 /usr/lib/Scrt1.o /usr/lib/crti.o "
-      "/lib/gcc/x86_64-pc-linux-gnu/16.1.1/crtbeginS.o "
+      "/lib/gcc/x86_64-pc-linux-gnu/16/crtbeginS.o "
       "-dynamic-linker /lib64/ld-linux-x86-64.so.2 ",
       obj_path,
-      " -lc /lib/gcc/x86_64-pc-linux-gnu/16.1.1/crtendS.o /usr/lib/crtn.o");
+      " -lc /lib/gcc/x86_64-pc-linux-gnu/16/crtendS.o /usr/lib/crtn.o");
   res = system(command);
   free(command);
   free(prog_path);
