@@ -3,11 +3,17 @@
 
 #include "array.h"
 #include "lexer.h"
+#include "list.h"
 
+//! Represents types of AST nodes.
 typedef enum ast_node_type {
+  //! Expression
   AST_EXPR,
+  //! Return statement
   AST_RETSTMNT,
+  //! Variable
   AST_VAR,
+  //! Constant
   AST_CONST,
 } ast_node_type;
 
@@ -82,6 +88,8 @@ typedef enum ast_operator_type {
   OP_AND,
   //! Logial or "||"
   OP_OR,
+  //! Simple assignment "="
+  OP_ASSIGN,
 } ast_operator_type;
 
 typedef struct ast_operator {
@@ -102,6 +110,20 @@ typedef struct ast_expression {
 typedef struct ast_statement {
   ast_node* expression;
 } ast_statement;
+
+// Most basic declaration:
+// int i;
+// int i = 123 + 456;
+typedef struct ast_declaration {
+  const char* identifier;
+  // Optional assignment expression.
+  ast_node* expression;
+} ast_declaration;
+
+typedef struct ast_block_item {
+  // Contains only `ast_statement` and `ast_declaration`.
+  list* items;
+} ast_block_item;
 
 struct ast_node {
   ast_node_type node_type;

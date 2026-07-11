@@ -467,6 +467,8 @@ static void init_precedence(void) {
   PRECEDENCE[OP_BITOR] = 6;
   PRECEDENCE[OP_AND] = 5;
   PRECEDENCE[OP_OR] = 4;
+
+  PRECEDENCE[OP_ASSIGN] = 2;
 }
 
 //! Returns the operator precedence of `op_type`.
@@ -525,6 +527,8 @@ static void init_associativity(void) {
   ASSOC[OP_BITOR] = LEFT;
   ASSOC[OP_AND] = LEFT;
   ASSOC[OP_OR] = LEFT;
+
+  ASSOC[OP_ASSIGN] = RIGHT;
 }
 
 //! Returns the operator associativity of `op_type`.
@@ -571,6 +575,8 @@ ast_node* parse_expression(parser* parser) {
   return parse_expression_internal(parser, /*min_pred=*/1);
 }
 
+static void parse_declaration(parser* parser) {}
+
 static ast_node* create_statement(ast_node_type node_type) {
   ast_node* node = calloc_safe(/*nelem=*/1, sizeof(ast_node));
   node->node_type = node_type;
@@ -580,6 +586,8 @@ static ast_node* create_statement(ast_node_type node_type) {
 }
 
 static ast_node* parse_statement(parser* parser) {
+  // TODO: Add expression statement, and compound statement. Compound statement
+  // is { declaration or statement }
   consume_keyword(parser, "return");
 
   ast_node* expression = parse_expression(parser);
