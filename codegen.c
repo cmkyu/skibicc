@@ -206,7 +206,7 @@ static void insert_neg(asm_operand* dst, list* asm_instructions) {
 }
 
 //! Inserts a not instruction.
-static void insert_not(asm_operand* dst, list* asm_instructions) {
+static void insert_bitnot(asm_operand* dst, list* asm_instructions) {
   asm_instruction* inst = calloc_safe(/*nelem=*/1, sizeof(asm_instruction));
   inst->instruction_type = ASM_NOT;
   inst->dst = dst;
@@ -389,6 +389,16 @@ static void lower_ir_return(ir_instruction* ir_instruction,
   insert_ret(asm_instructions);
 }
 
+//! Inserts a series of instructions into `asm_instructions` that applies
+//! logical NOT to `src` and stores the result into `dst`.
+static void lower_logical_not(asm_operand* src, asm_operand* dst,
+                              list* asm_instructions) {
+  insert_cmp(create_immediate(0), src, asm_instructions);
+  insert_mov(create_immediate(0), dst, asm_instructions);
+  //! `dst` is 1(true) iff `src` is equal to 0. Otherwise `dst` is 0(false).
+  insert_set_cond_code(CC_EQ, dup_operand(dst), asm_instructions);
+}
+
 //! Converts unary `ir_instruction` into assembly instructions. Inserts them
 //! into `asm_instructions`.
 static void lower_ir_unary(ir_instruction* ir_instruction,
@@ -397,14 +407,18 @@ static void lower_ir_unary(ir_instruction* ir_instruction,
   asm_operand* src = lower_ir_val(ir_instruction->lhs, alloc);
   asm_operand* dst = lower_ir_val(ir_instruction->dst, alloc);
   insert_mov(src, dst, asm_instructions);
+  dst = dup_operand(dst);
 
-  asm_operand* dst_copy = dup_operand(dst);
   switch (ir_instruction->op->op_type) {
     case OP_NEG:
-      insert_neg(dst_copy, asm_instructions);
+      insert_neg(dst, asm_instructions);
+      break;
+    case OP_NOT:
+      src = dup_operand(src);
+      lower_logical_not(src, dst, asm_instructions);
       break;
     case OP_BITNOT:
-      insert_not(dst_copy, asm_instructions);
+      insert_bitnot(dst, asm_instructions);
       break;
     default:
       error("Unimplemented unary");

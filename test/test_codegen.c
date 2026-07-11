@@ -37,6 +37,7 @@ static void run_test(char* text, const char* answer_filename) {
 
   char* actual = read_test_file(out_filename);
   char* expected = read_test_file(answer_filename);
+  printf("%s", actual);
   TEST_ASSERT_EQUAL_STRING(expected, actual);
 
   free(actual);
@@ -59,7 +60,7 @@ void test_codegen_binary_ops(void) {
 
 void test_codegen_logical_and_relational_ops(void) {
   run_test(/*text=*/
-           "int main(void){return (2 > 1) && (3 == 3) || (3 < 4) && (5 >= 6) "
+           "int main(void){return (2 > 1) && !(3 == 3) || (3 < 4) && (5 >= 6) "
            "|| (8 "
            "<= 7);}",
            /*answer_filename=*/
