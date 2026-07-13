@@ -69,7 +69,7 @@ static void prettyprint_ast_return_statement(ast_statement* statement,
   print_tabs(depth);
   printf("(Return: \n");
 
-  ast_statement_item* item = array_at(statement->items, 0);
+  ast_statement_item* item = array_at(&statement->items, 0);
   prettyprint_ast_expression(item->expression, depth + 1);
 
   print_tabs(depth);

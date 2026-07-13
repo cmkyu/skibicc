@@ -223,7 +223,7 @@ static void emit_ir_instruction(ast_node* node, array* instructions,
 
   if (node->node_type == AST_STMNT) {
     // Assume there is only 1 return statement for now.
-    ast_statement_item* item = array_at(node->node.statement->items, 0);
+    ast_statement_item* item = array_at(&node->node.statement->items, 0);
     ir_val* lhs = emit_expression(item->expression, instructions, gen);
     ir_instruction* inst = array_push_back(instructions);
     inst->instruction_type = IR_RETURN;

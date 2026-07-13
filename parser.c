@@ -580,7 +580,7 @@ static ast_node* create_statement(void) {
   ast_node* node = calloc_safe(/*nelem=*/1, sizeof(ast_node));
   node->node_type = AST_STMNT;
   ast_statement* statement = calloc_safe(/*nelem=*/1, sizeof(ast_statement));
-  array_init(statement->items, sizeof(ast_statement_item));
+  array_init(&statement->items, sizeof(ast_statement_item));
   node->node.statement = statement;
   return node;
 }
@@ -589,7 +589,7 @@ static ast_node* create_statement(void) {
 static void insert_expression(ast_statement* statement,
                               ast_statement_item_type type,
                               ast_expression* expression) {
-  ast_statement_item* item = array_push_back(statement->items);
+  ast_statement_item* item = array_push_back(&statement->items);
   item->type = type;
   item->expression = expression;
 }
@@ -646,6 +646,10 @@ static void destroy_ast_expression_node(ast_expression_node* node) {
 }
 
 static void destroy_ast_expression(ast_expression* expr) {
+  if (!expr) {
+    return;
+  }
+
   switch (expr->type) {
     case EXPR:
       destroy_ast_expression_node(expr->node.expression);
@@ -677,15 +681,14 @@ static void destroy_ast_statement_item(ast_statement_item* item) {
       destroy_ast_expression(item->expression);
       break;
   }
-  free(item);
 }
 
 static void destroy_ast_statement(ast_statement* stmt) {
-  for (size_t i = 0; i < stmt->items->size; ++i) {
-    ast_statement_item* item = array_at(stmt->items, i);
+  for (size_t i = 0; i < stmt->items.size; ++i) {
+    ast_statement_item* item = array_at(&stmt->items, i);
     destroy_ast_statement_item(item);
   }
-  array_destroy(stmt->items);
+  array_destroy(&stmt->items);
   free(stmt);
 }
 

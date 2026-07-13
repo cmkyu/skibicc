@@ -166,7 +166,7 @@ typedef struct ast_statement_item {
 //! Represents a statement.
 typedef struct ast_statement {
   //! Block items within a statement. Must be of type `ast_statement_item`.
-  array* items;
+  array items;
 } ast_statement;
 
 struct ast_node {
