@@ -18,8 +18,8 @@ static void print_tabs(size_t depth) {
 
 //! Prints a variable `ast` node. `depth` is the depth of the node within the
 //! whole AST.
-static void print_ast_variable(ast_node* ast, size_t depth) {
-  token* tok = ast->node.variable->tok;
+static void print_ast_variable(ast_variable* ast, size_t depth) {
+  token* tok = ast->tok;
   char* str = strndup(tok->loc, tok->size);
   print_tabs(depth);
   printf("(Variable: %s)\n", str);
@@ -28,8 +28,8 @@ static void print_ast_variable(ast_node* ast, size_t depth) {
 
 //! Prints a constant `ast` node. `depth` is the depth of the node within the
 //! whole AST.
-static void print_ast_constant(ast_node* ast, size_t depth) {
-  token* tok = ast->node.consant->tok;
+static void print_ast_constant(ast_constant* ast, size_t depth) {
+  token* tok = ast->tok;
   char* str = strndup(tok->loc, tok->size);
   print_tabs(depth);
   printf("(Constant: %s)\n", str);
@@ -37,66 +37,74 @@ static void print_ast_constant(ast_node* ast, size_t depth) {
 }
 
 // Forward declaration.
-static void prettyprint_ast_internal(ast_node*, size_t);
+static void prettyprint_ast_expression(ast_expression*, size_t);
 
 //! Prints an expression `ast` node. `depth` is the depth of the node within the
 //! whole AST.
-static void print_ast_expression(ast_node* ast, size_t depth) {
+static void print_ast_expression_node(ast_expression_node* ast, size_t depth) {
   print_tabs(depth);
   printf("(Expression, op: ");
-  ast_expression* expression = ast->node.expression;
   // Print the operator
-  token* op_tok = expression->op->tok;
+  token* op_tok = ast->op->tok;
   char* str = strndup(op_tok->loc, op_tok->size);
   printf("%s,\n", str);
   free(str);
 
   print_tabs(depth);
   printf(" lhs: \n");
-  prettyprint_ast_internal(expression->lhs, depth + 1);
-  if (expression->rhs) {
+  prettyprint_ast_expression(ast->lhs, depth + 1);
+  if (ast->rhs) {
     print_tabs(depth);
     printf(" rhs: \n");
-    prettyprint_ast_internal(expression->rhs, depth + 1);
+    prettyprint_ast_expression(ast->rhs, depth + 1);
   }
 
   print_tabs(depth);
   printf(")\n");
 }
 
-// TODO: Temporary. AST_RETSTMNT is probably going away soon.
-static void prettyprint_ast_return_statement(ast_node* node, size_t depth) {
+// TODO: Temporary.
+static void prettyprint_ast_return_statement(ast_statement* statement,
+                                             size_t depth) {
   print_tabs(depth);
   printf("(Return: \n");
 
-  prettyprint_ast_internal(node->node.statement->expression, depth + 1);
+  ast_statement_item* item = array_at(statement->items, 0);
+  prettyprint_ast_expression(item->expression, depth + 1);
 
   print_tabs(depth);
   printf(")\n");
 }
 
-//! Helper method that implements the actual meat of the prettyprint function.
-//! Prints the `ast` node. `depth` is the node's depth within the entire AST.
-static void prettyprint_ast_internal(ast_node* ast, size_t depth) {
-  switch (ast->node_type) {
-    case AST_RETSTMNT:
-      prettyprint_ast_return_statement(ast, depth);
+//! Prints the `ast` expression. `depth` is the node's depth within the entire
+//! AST.
+static void prettyprint_ast_expression(ast_expression* ast, size_t depth) {
+  switch (ast->type) {
+    case EXPR:
+      print_ast_expression_node(ast->node.expression, depth);
       break;
-    case AST_EXPR:
-      print_ast_expression(ast, depth);
+    case EXPR_VAR:
+      print_ast_variable(ast->node.variable, depth);
       break;
-    case AST_VAR:
-      print_ast_variable(ast, depth);
-      break;
-    case AST_CONST:
-      print_ast_constant(ast, depth);
+    case EXPR_CONST:
+      print_ast_constant(ast->node.consant, depth);
       break;
   }
 }
 
-void prettyprint_ast(ast_node* ast) {
-  prettyprint_ast_internal(ast, /*depth=*/0);
+//! Helper method that implements the actual meat of printing the `ast` node.
+static void prettyprint_ast_internal(ast_node* ast) {
+  switch (ast->node_type) {
+    case AST_STMNT:
+      prettyprint_ast_return_statement(ast->node.statement, /*depth=*/0);
+      break;
+    case AST_EXPR:
+      prettyprint_ast_expression(ast->node.expression, /*depth=*/0);
+      break;
+  }
 }
+
+void prettyprint_ast(ast_node* ast) { prettyprint_ast_internal(ast); }
 
 static void prettyprint_ir_val(ir_val* val) {
   if (val->is_constant) {
