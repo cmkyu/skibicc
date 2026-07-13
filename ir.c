@@ -117,9 +117,10 @@ static void emit_copy(ir_val* src, ir_val* dst, array* instructions) {
 }
 
 // Forward declaration.
-static ir_val* emit_ir_instruction(ast_node*, array*, name_generator*);
+static ir_val* emit_expression(ast_expression*, array*, name_generator*);
 
-static ir_val* emit_logical_and_expression(ast_node* node, array* instructions,
+static ir_val* emit_logical_and_expression(ast_expression* expr,
+                                           array* instructions,
                                            name_generator* gen) {
   string_view false_label = name_generator_get_label(gen);
   string_view end_label = name_generator_get_label(gen);
@@ -133,11 +134,9 @@ static ir_val* emit_logical_and_expression(ast_node* node, array* instructions,
   // Label(false_label)
   // result = 0
   // Label(end_label)
-  ir_val* e1 =
-      emit_ir_instruction(node->node.expression->lhs, instructions, gen);
+  ir_val* e1 = emit_expression(expr->node.expression->lhs, instructions, gen);
   emit_cond_jump(IR_JZ, e1, false_label, instructions);
-  ir_val* e2 =
-      emit_ir_instruction(node->node.expression->rhs, instructions, gen);
+  ir_val* e2 = emit_expression(expr->node.expression->rhs, instructions, gen);
   emit_cond_jump(IR_JZ, e2, false_label, instructions);
   ir_val* result = create_ir_val_var(gen);
   emit_copy(create_ir_val_constant(1), result, instructions);
@@ -148,7 +147,8 @@ static ir_val* emit_logical_and_expression(ast_node* node, array* instructions,
   return dup_ir_val(result);
 }
 
-static ir_val* emit_logical_or_expression(ast_node* node, array* instructions,
+static ir_val* emit_logical_or_expression(ast_expression* expr,
+                                          array* instructions,
                                           name_generator* gen) {
   string_view true_label = name_generator_get_label(gen);
   string_view end_label = name_generator_get_label(gen);
@@ -162,11 +162,9 @@ static ir_val* emit_logical_or_expression(ast_node* node, array* instructions,
   // Label(true_label)
   // result = 1
   // Label(end_label)
-  ir_val* e1 =
-      emit_ir_instruction(node->node.expression->lhs, instructions, gen);
+  ir_val* e1 = emit_expression(expr->node.expression->lhs, instructions, gen);
   emit_cond_jump(IR_JNZ, e1, true_label, instructions);
-  ir_val* e2 =
-      emit_ir_instruction(node->node.expression->rhs, instructions, gen);
+  ir_val* e2 = emit_expression(expr->node.expression->rhs, instructions, gen);
   emit_cond_jump(IR_JNZ, e2, true_label, instructions);
   ir_val* result = create_ir_val_var(gen);
   emit_copy(create_ir_val_constant(0), result, instructions);
@@ -180,20 +178,29 @@ static ir_val* emit_logical_or_expression(ast_node* node, array* instructions,
 //! Assuming `node` is an expression node, emits the IR for the expression, and
 //! returns the IR node representing the destination (i.e., final result) of the
 //! expression.
-static ir_val* emit_expression(ast_node* node, array* instructions,
+static ir_val* emit_expression(ast_expression* expr, array* instructions,
                                name_generator* gen) {
-  ast_operator* op = node->node.expression->op;
-  if (op->op_type == OP_AND) {
-    return emit_logical_and_expression(node, instructions, gen);
-  }
-  if (op->op_type == OP_OR) {
-    return emit_logical_or_expression(node, instructions, gen);
+  if (!expr) {
+    return NULL;
   }
 
-  ir_val* lhs =
-      emit_ir_instruction(node->node.expression->lhs, instructions, gen);
-  ir_val* rhs =
-      emit_ir_instruction(node->node.expression->rhs, instructions, gen);
+  if (expr->type == EXPR_VAR) {
+    return create_ir_val_var(gen);
+  }
+  if (expr->type == EXPR_CONST) {
+    return create_ir_val_constant(expr->node.consant->tok->constant.int_val);
+  }
+
+  ast_operator* op = expr->node.expression->op;
+  if (op->op_type == OP_AND) {
+    return emit_logical_and_expression(expr, instructions, gen);
+  }
+  if (op->op_type == OP_OR) {
+    return emit_logical_or_expression(expr, instructions, gen);
+  }
+
+  ir_val* lhs = emit_expression(expr->node.expression->lhs, instructions, gen);
+  ir_val* rhs = emit_expression(expr->node.expression->rhs, instructions, gen);
   ir_instruction* inst = array_push_back(instructions);
   inst->instruction_type = (rhs == NULL ? IR_UNARY : IR_BINARY);
   inst->op = op;
@@ -203,33 +210,29 @@ static ir_val* emit_expression(ast_node* node, array* instructions,
   return dup_ir_val(inst->dst);
 }
 
-static ir_val* emit_ir_instruction(ast_node* node, array* instructions,
-                                   name_generator* gen) {
+static void emit_ir_instruction(ast_node* node, array* instructions,
+                                name_generator* gen) {
   if (!node) {
-    return NULL;
+    return;
   }
 
-  if (node->node_type == AST_VAR) {
-    return create_ir_val_var(gen);
-  }
-  if (node->node_type == AST_CONST) {
-    return create_ir_val_constant(node->node.consant->tok->constant.int_val);
-  }
   if (node->node_type == AST_EXPR) {
-    return emit_expression(node, instructions, gen);
+    emit_expression(node->node.expression, instructions, gen);
+    return;
   }
 
-  if (node->node_type == AST_RETSTMNT) {
-    ir_val* lhs = emit_ir_instruction(node->node.statement->expression,
-                                      instructions, gen);
+  if (node->node_type == AST_STMNT) {
+    // Assume there is only 1 return statement for now.
+    ast_statement_item* item = array_at(node->node.statement->items, 0);
+    ir_val* lhs = emit_expression(item->expression, instructions, gen);
     ir_instruction* inst = array_push_back(instructions);
     inst->instruction_type = IR_RETURN;
     inst->lhs = lhs;
-    return NULL;
+    return;
   }
 
   error("Unimplemented");
-  return NULL;
+  return;
 }
 
 static ir_func_def* create_ir_func_def(void) {
