@@ -3,18 +3,13 @@
 
 #include "array.h"
 #include "lexer.h"
-#include "list.h"
 
 //! Represents types of AST nodes.
 typedef enum ast_node_type {
-  //! Expression
+  //! Expression.
   AST_EXPR,
-  //! Return statement
-  AST_RETSTMNT,
-  //! Variable
-  AST_VAR,
-  //! Constant
-  AST_CONST,
+  //! Statement.
+  AST_STMNT,
 } ast_node_type;
 
 typedef struct ast_node ast_node;
@@ -92,24 +87,51 @@ typedef enum ast_operator_type {
   OP_ASSIGN,
 } ast_operator_type;
 
+//! Represents an operator.
 typedef struct ast_operator {
+  //! Type of the operator.
   ast_operator_type op_type;
-  // Must be TK_PUNCT
+  //! Token representing the operator. Must be `TK_PUNCT`.
   token* tok;
 } ast_operator;
 
-typedef struct ast_expression {
-  ast_operator* op;
-  // Must be `AST_EXPR`, `AST_CONST` or `AST_VAR`. Always populated.
-  struct ast_node* lhs;
-  // Must be `AST_EXPR`, `AST_CONST` or `AST_VAR`. Populated if `op` is not NULL
-  // and is a binary operator.
-  struct ast_node* rhs;
-} ast_expression;
+//! Types of an expression.
+typedef enum ast_expression_type {
+  //! Nested expression.
+  EXPR,
+  //! Variable.
+  EXPR_VAR,
+  //! Constant.
+  EXPR_CONST,
+} ast_expression_type;
 
-typedef struct ast_statement {
-  ast_node* expression;
-} ast_statement;
+typedef struct ast_expression ast_expression;
+
+//! Represents a single expression AST node.
+typedef struct ast_expression_node {
+  //! Operator of the expression. Can be NULL, which means this is a terminal
+  //! expression (constant or variable).
+  ast_operator* op;
+  //! Left hand side of the expression. Always populated.
+  ast_expression* lhs;
+  //! Right hand side of the expression. Populated if `op` is a binary operator.
+  ast_expression* rhs;
+} ast_expression_node;
+
+//! Represents an AST for a full expression.
+typedef struct ast_expression {
+  //! Type of the expression.
+  ast_expression_type type;
+
+  union {
+    //! Expression (nested). Corresponds to `EXPR`.
+    struct ast_expression_node* expression;
+    //! Constant. Corresponds to `EXPR_CONST`.
+    ast_constant* consant;
+    //! Variable. Corresponds to `EXPR_VAR`.
+    ast_variable* variable;
+  } node;
+} ast_expression;
 
 // Most basic declaration:
 // int i;
@@ -117,21 +139,41 @@ typedef struct ast_statement {
 typedef struct ast_declaration {
   const char* identifier;
   // Optional assignment expression.
-  ast_node* expression;
+  ast_expression* expression;
 } ast_declaration;
 
-typedef struct ast_block_item {
-  // Contains only `ast_statement` and `ast_declaration`.
-  list* items;
-} ast_block_item;
+//! Types of block items within a statement.
+typedef enum ast_statement_item_type {
+  //! Declaration.
+  STMT_DECL,
+  //! Expression statement.
+  STMT_EXPR,
+  //! Return statement.
+  STMT_RET,
+} ast_statement_item_type;
+
+//! Block item within a statement.
+typedef struct ast_statement_item {
+  //! Type of the block item.
+  ast_statement_item_type type;
+
+  //! Only used if `type` is `STMT_DECL`.
+  ast_declaration* declaration;
+  //! Only used if `type` is `STMT_EXPR` or `STMT_RET`.
+  ast_expression* expression;
+} ast_statement_item;
+
+//! Represents a statement.
+typedef struct ast_statement {
+  //! Block items within a statement. Must be of type `ast_statement_item`.
+  array* items;
+} ast_statement;
 
 struct ast_node {
   ast_node_type node_type;
   union {
     ast_expression* expression;
     ast_statement* statement;
-    ast_constant* consant;
-    ast_variable* variable;
   } node;
 };
 

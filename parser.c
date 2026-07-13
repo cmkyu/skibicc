@@ -10,8 +10,8 @@
 #include "lexer.h"
 
 // Forward declarations.
-static ast_node* parse_unary_expression(parser*);
-ast_node* parse_expression(parser*);
+static ast_expression* parse_unary_expression(parser*);
+ast_expression* parse_expression(parser*);
 
 //! Returns true if `tok`'s string representation matches `expected`. Otherwise
 //! returns false.
@@ -108,7 +108,7 @@ static ast_node* parse_type_name(parser* parser) {
 }
 
 // Incomplete. Right now just delegates to parse_unary_expression.
-static ast_node* parse_cast_expression(parser* parser) {
+static ast_expression* parse_cast_expression(parser* parser) {
   token* tok = peek_token(parser);
   if (is_punctuator_token(tok, "(") && parse_type_name(parser)) {
     return parse_cast_expression(parser);
@@ -116,33 +116,33 @@ static ast_node* parse_cast_expression(parser* parser) {
   return parse_unary_expression(parser);
 }
 
-//! Retruns an expression AST node.
-static ast_node* create_ast_expression(void) {
-  ast_node* node = calloc_safe(/*nelem=*/1, sizeof(ast_node));
-  node->node_type = AST_EXPR;
-  ast_expression* expression = calloc_safe(1, sizeof(ast_expression));
-  node->node.expression = expression;
-  return node;
+//! Retruns a nested expression AST expression node.
+static ast_expression* create_ast_expression(void) {
+  ast_expression* expr = calloc_safe(/*nelem=*/1, sizeof(ast_expression));
+  expr->type = EXPR;
+  ast_expression_node* expression = calloc_safe(1, sizeof(ast_expression_node));
+  expr->node.expression = expression;
+  return expr;
 }
 
-//! Retruns a constant AST node.
-static ast_node* create_ast_constant(token* tok) {
-  ast_node* node = calloc_safe(/*nelem=*/1, sizeof(ast_node));
-  node->node_type = AST_CONST;
+//! Retruns a constant AST expression node.
+static ast_expression* create_ast_constant(token* tok) {
+  ast_expression* expr = calloc_safe(/*nelem=*/1, sizeof(ast_expression));
+  expr->type = EXPR_CONST;
   ast_constant* constant = calloc_safe(/*nelem=*/1, sizeof(ast_constant));
   constant->tok = tok;
-  node->node.consant = constant;
-  return node;
+  expr->node.consant = constant;
+  return expr;
 }
 
-//! Retruns a variable AST node.
-static ast_node* create_ast_variable(token* tok) {
-  ast_node* node = calloc_safe(/*nelem=*/1, sizeof(ast_node));
-  node->node_type = AST_VAR;
+//! Retruns a variable AST expression node.
+static ast_expression* create_ast_variable(token* tok) {
+  ast_expression* expr = calloc_safe(/*nelem=*/1, sizeof(ast_expression));
+  expr->type = EXPR_VAR;
   ast_variable* variable = calloc_safe(/*nelem=*/1, sizeof(ast_variable));
   variable->tok = tok;
-  node->node.variable = variable;
-  return node;
+  expr->node.variable = variable;
+  return expr;
 }
 
 //! Parses a primary expression and returns an AST node representing it. A
@@ -153,7 +153,7 @@ static ast_node* create_ast_variable(token* tok) {
 //! - ( expression ). Returns an expression AST node.
 //!
 //! Returns NULL no primary expression can be parsed.
-static ast_node* parse_primary_expression(parser* parser) {
+static ast_expression* parse_primary_expression(parser* parser) {
   token* tok = peek_token(parser);
   token_type tok_type = tok->token_type;
   // Constant or string literal.
@@ -170,7 +170,7 @@ static ast_node* parse_primary_expression(parser* parser) {
   // ( expression )
   if (is_punctuator_token(tok, "(")) {
     consume_token(parser);
-    ast_node* node = parse_expression(parser);
+    ast_expression* node = parse_expression(parser);
     consume_punctuator(parser, ")");
     return node;
   }
@@ -191,7 +191,7 @@ static ast_operator* create_ast_operator(token* tok,
 //! Parses a postfix operator from `tok`. If successful, consumes `tok` and
 //! returns an expression AST node containing the operator. Returns NULL if no
 //! postfix operator can be parsed from `tok`.
-static ast_node* parse_postfix_operator(parser* parser, token* tok) {
+static ast_expression* parse_postfix_operator(parser* parser, token* tok) {
   if (tok->token_type != TK_PUNCT) {
     return NULL;
   }
@@ -205,17 +205,17 @@ static ast_node* parse_postfix_operator(parser* parser, token* tok) {
 
   if (op) {
     consume_token(parser);
-    ast_node* node = create_ast_expression();
-    node->node.expression->op = op;
-    return node;
+    ast_expression* expr = create_ast_expression();
+    expr->node.expression->op = op;
+    return expr;
   }
   return NULL;
 }
 
-static ast_node* parse_postfix_expression(parser* parser) {
+static ast_expression* parse_postfix_expression(parser* parser) {
   // TODO: handle compound struct literal ( type-name ) { initializer-list }
 
-  ast_node* node = parse_primary_expression(parser);
+  ast_expression* node = parse_primary_expression(parser);
   while (has_token(parser)) {
     token* tok = peek_token(parser);
     // postfix-expression [ expression ]
@@ -249,7 +249,7 @@ static ast_node* parse_postfix_expression(parser* parser) {
 
     // postfix-expression ++
     // postfix-expression --
-    ast_node* new_node = parse_postfix_operator(parser, tok);
+    ast_expression* new_node = parse_postfix_operator(parser, tok);
     if (new_node) {
       new_node->node.expression->lhs = node;
       node = new_node;
@@ -264,7 +264,7 @@ static ast_node* parse_postfix_expression(parser* parser) {
 //! Parses a prefix operator from `tok`. If successful, consumes `tok` and
 //! returns an expression AST node containing the operator. Returns NULL if no
 //! prefix operator can be parsed from `tok`.
-static ast_node* parse_prefix_operator(parser* parser, token* tok) {
+static ast_expression* parse_prefix_operator(parser* parser, token* tok) {
   if (tok->token_type != TK_PUNCT) {
     return NULL;
   }
@@ -278,7 +278,7 @@ static ast_node* parse_prefix_operator(parser* parser, token* tok) {
 
   if (op) {
     consume_token(parser);
-    ast_node* res = create_ast_expression();
+    ast_expression* res = create_ast_expression();
     res->node.expression->op = op;
     return res;
   }
@@ -288,7 +288,7 @@ static ast_node* parse_prefix_operator(parser* parser, token* tok) {
 //! Parses an unary operator from `tok`. If successful, consumes `tok` and
 //! returns an expression AST node containing the operator. Returns NULL if no
 //! unary operator can be parsed from `tok`.
-static ast_node* parse_unary_operator(parser* parser, token* tok) {
+static ast_expression* parse_unary_operator(parser* parser, token* tok) {
   if (tok->token_type != TK_PUNCT) {
     return NULL;
   }
@@ -310,25 +310,25 @@ static ast_node* parse_unary_operator(parser* parser, token* tok) {
 
   if (op) {
     consume_token(parser);
-    ast_node* res = create_ast_expression();
+    ast_expression* res = create_ast_expression();
     res->node.expression->op = op;
     return res;
   }
   return NULL;
 }
 
-static ast_node* parse_unary_expression(parser* parser) {
+static ast_expression* parse_unary_expression(parser* parser) {
   token* tok = peek_token(parser);
-  ast_node* node = parse_prefix_operator(parser, tok);
+  ast_expression* node = parse_prefix_operator(parser, tok);
   if (node) {
-    ast_node* lhs = parse_unary_expression(parser);
+    ast_expression* lhs = parse_unary_expression(parser);
     node->node.expression->lhs = lhs;
     return node;
   }
 
   node = parse_unary_operator(parser, tok);
   if (node) {
-    ast_node* lhs = parse_cast_expression(parser);
+    ast_expression* lhs = parse_cast_expression(parser);
     node->node.expression->lhs = lhs;
     return node;
   }
@@ -417,10 +417,10 @@ static bool get_binary_op_type(token* tok, ast_operator_type* op_type) {
 //! Returns a binary expression whose operator is of `op_type` from `tok`. The
 //! caller is responsible for populating in the left handside and the right
 //! handside of the expression.
-static ast_node* create_binary_expression(ast_operator_type op_type,
-                                          token* tok) {
+static ast_expression* create_binary_expression(ast_operator_type op_type,
+                                                token* tok) {
   ast_operator* op = create_ast_operator(tok, op_type);
-  ast_node* res = create_ast_expression();
+  ast_expression* res = create_ast_expression();
   res->node.expression->op = op;
   return res;
 }
@@ -542,8 +542,9 @@ static op_assoc get_associativity(ast_operator_type op_type) {
 //! Recursively purses expressions using precedence climbing.
 //! Based on:
 //! https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
-static ast_node* parse_expression_internal(parser* parser, uint64_t min_pred) {
-  ast_node* lhs = parse_unary_expression(parser);
+static ast_expression* parse_expression_internal(parser* parser,
+                                                 uint64_t min_pred) {
+  ast_expression* lhs = parse_unary_expression(parser);
   while (has_token(parser)) {
     token* tok = peek_token(parser);
     ast_operator_type op_type;
@@ -561,9 +562,9 @@ static ast_node* parse_expression_internal(parser* parser, uint64_t min_pred) {
       next_min_pred = pred + 1;
     }
 
-    ast_node* binary_expr = create_binary_expression(op_type, tok);
+    ast_expression* binary_expr = create_binary_expression(op_type, tok);
     consume_token(parser);
-    ast_node* rhs = parse_expression_internal(parser, next_min_pred);
+    ast_expression* rhs = parse_expression_internal(parser, next_min_pred);
     binary_expr->node.expression->lhs = lhs;
     binary_expr->node.expression->rhs = rhs;
     lhs = binary_expr;
@@ -571,18 +572,26 @@ static ast_node* parse_expression_internal(parser* parser, uint64_t min_pred) {
   return lhs;
 }
 
-ast_node* parse_expression(parser* parser) {
+ast_expression* parse_expression(parser* parser) {
   return parse_expression_internal(parser, /*min_pred=*/1);
 }
 
-static void parse_declaration(parser* parser) {}
-
-static ast_node* create_statement(ast_node_type node_type) {
+static ast_node* create_statement(void) {
   ast_node* node = calloc_safe(/*nelem=*/1, sizeof(ast_node));
-  node->node_type = node_type;
+  node->node_type = AST_STMNT;
   ast_statement* statement = calloc_safe(/*nelem=*/1, sizeof(ast_statement));
+  array_init(statement->items, sizeof(ast_statement_item));
   node->node.statement = statement;
   return node;
+}
+
+//! Inserts `expression` of `type` into `statement`.
+static void insert_expression(ast_statement* statement,
+                              ast_statement_item_type type,
+                              ast_expression* expression) {
+  ast_statement_item* item = array_push_back(statement->items);
+  item->type = type;
+  item->expression = expression;
 }
 
 static ast_node* parse_statement(parser* parser) {
@@ -590,12 +599,12 @@ static ast_node* parse_statement(parser* parser) {
   // is { declaration or statement }
   consume_keyword(parser, "return");
 
-  ast_node* expression = parse_expression(parser);
+  ast_expression* expression = parse_expression(parser);
 
   consume_punctuator(parser, ";");
 
-  ast_node* node = create_statement(AST_RETSTMNT);
-  node->node.statement->expression = expression;
+  ast_node* node = create_statement();
+  insert_expression(node->node.statement, STMT_RET, expression);
   return node;
 }
 
@@ -623,22 +632,62 @@ ast_node* parse(array* tokens) {
 
 // Forward declarations.
 void ast_destroy(ast_node*);
-
-static void destroy_ast_expression(ast_expression* expr) {
-  ast_destroy(expr->lhs);
-  ast_destroy(expr->rhs);
-  free(expr->op);
-  free(expr);
-}
-
-static void destroy_ast_statement(ast_statement* stmt) {
-  ast_destroy(stmt->expression);
-  free(stmt);
-}
+static void destroy_ast_expression(ast_expression*);
 
 static void destroy_ast_variable(ast_variable* var) { free(var); }
 
 static void destroy_ast_constant(ast_constant* constant) { free(constant); }
+
+static void destroy_ast_expression_node(ast_expression_node* node) {
+  destroy_ast_expression(node->lhs);
+  destroy_ast_expression(node->rhs);
+  free(node->op);
+  free(node);
+}
+
+static void destroy_ast_expression(ast_expression* expr) {
+  switch (expr->type) {
+    case EXPR:
+      destroy_ast_expression_node(expr->node.expression);
+      break;
+    case EXPR_VAR:
+      destroy_ast_variable(expr->node.variable);
+      break;
+    case EXPR_CONST:
+      destroy_ast_constant(expr->node.consant);
+      break;
+  }
+  free(expr);
+}
+
+static void destroy_ast_declaration(ast_declaration* declaration) {
+  destroy_ast_expression(declaration->expression);
+  free(declaration);
+}
+
+static void destroy_ast_statement_item(ast_statement_item* item) {
+  switch (item->type) {
+    case STMT_DECL:
+      destroy_ast_declaration(item->declaration);
+      break;
+    case STMT_EXPR:
+      destroy_ast_expression(item->expression);
+      break;
+    case STMT_RET:
+      destroy_ast_expression(item->expression);
+      break;
+  }
+  free(item);
+}
+
+static void destroy_ast_statement(ast_statement* stmt) {
+  for (size_t i = 0; i < stmt->items->size; ++i) {
+    ast_statement_item* item = array_at(stmt->items, i);
+    destroy_ast_statement_item(item);
+  }
+  array_destroy(stmt->items);
+  free(stmt);
+}
 
 void ast_destroy(ast_node* node) {
   if (!node) {
@@ -649,14 +698,8 @@ void ast_destroy(ast_node* node) {
     case AST_EXPR:
       destroy_ast_expression(node->node.expression);
       break;
-    case AST_RETSTMNT:
+    case AST_STMNT:
       destroy_ast_statement(node->node.statement);
-      break;
-    case AST_VAR:
-      destroy_ast_variable(node->node.variable);
-      break;
-    case AST_CONST:
-      destroy_ast_constant(node->node.consant);
       break;
   }
   free(node);
