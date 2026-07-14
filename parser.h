@@ -137,7 +137,8 @@ typedef struct ast_expression {
 // int i;
 // int i = 123 + 456;
 typedef struct ast_declaration {
-  const char* identifier;
+  // Identifier token.
+  token* identifier;
   // Optional assignment expression.
   ast_expression* expression;
 } ast_declaration;

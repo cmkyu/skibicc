@@ -84,21 +84,15 @@ static void consume_punctuator(parser* parser, const char* expecte_tok) {
   consume_token(parser);
 }
 
-static void consume_any_literal(parser* parser) {
-  token* tok = peek_token(parser);
-  if (tok->token_type != TK_ICONST && tok->token_type != TK_FCONST &&
-      tok->token_type != TK_STRLIT) {
-    error_tok_fmt(tok, "Expected a constant or a literal.");
-  }
-  consume_token(parser);
-}
-
-static void consume_any_identifier(parser* parser) {
+//! Consumes the current token if it is an identifier token and returns the
+//! token. Otherwise emits an error message and exits.
+static token* consume_identifier(parser* parser) {
   token* tok = peek_token(parser);
   if (tok->token_type != TK_IDENT) {
     error_tok_fmt(tok, "Expected an identifier.");
   }
   consume_token(parser);
+  return tok;
 }
 
 static ast_node* parse_type_name(parser* parser) {
@@ -243,7 +237,7 @@ static ast_expression* parse_postfix_expression(parser* parser) {
     // postfix-expression -> identifier
     if (is_punctuator_token(tok, ".") || is_punctuator_token(tok, "->")) {
       consume_token(parser);
-      consume_any_identifier(parser);
+      consume_identifier(parser);
       continue;
     }
 
@@ -409,6 +403,9 @@ static bool get_binary_op_type(token* tok, ast_operator_type* op_type) {
     return true;
   } else if (is_token_string_match(tok, "||")) {
     *op_type = OP_OR;
+    return true;
+  } else if (is_token_string_match(tok, "=")) {
+    *op_type = OP_ASSIGN;
     return true;
   }
   return false;
@@ -585,41 +582,70 @@ static ast_node* create_statement(void) {
   return node;
 }
 
-//! Inserts `expression` of `type` into `statement`.
-static void insert_expression(ast_statement* statement,
-                              ast_statement_item_type type,
-                              ast_expression* expression) {
-  ast_statement_item* item = array_push_back(&statement->items);
-  item->type = type;
-  item->expression = expression;
+static ast_declaration* parse_ast_declaration(parser* parser) {
+  // Very basic declaration grammar: int <identifier> = <expression>;
+  token* tok = peek_token(parser);
+  if (!is_keyword_token(tok, "int")) {
+    return NULL;
+  }
+  consume_token(parser);
+
+  ast_declaration* declaration =
+      calloc_safe(/*nelem=*/1, sizeof(ast_declaration));
+  tok = consume_identifier(parser);
+  declaration->identifier = tok;
+
+  tok = peek_token(parser);
+  if (is_punctuator_token(tok, "=")) {
+    consume_token(parser);
+    ast_expression* expr = parse_expression(parser);
+    declaration->expression = expr;
+  }
+  consume_punctuator(parser, ";");
+  return declaration;
 }
 
-static ast_node* parse_statement(parser* parser) {
-  // TODO: Add expression statement, and compound statement. Compound statement
-  // is { declaration or statement }
+static ast_expression* parse_return_statement(parser* parser) {
   consume_keyword(parser, "return");
-
   ast_expression* expression = parse_expression(parser);
-
   consume_punctuator(parser, ";");
+  return expression;
+}
 
-  ast_node* node = create_statement();
-  insert_expression(node->node.statement, STMT_RET, expression);
-  return node;
+static ast_node* parse_compound_statement(parser* parser) {
+  consume_punctuator(parser, "{");
+  ast_node* statements = create_statement();
+
+  for (token* tok = peek_token(parser); !is_punctuator_token(tok, "}");
+       tok = peek_token(parser)) {
+    ast_declaration* declaration = parse_ast_declaration(parser);
+    if (declaration) {
+      ast_statement_item* item =
+          array_push_back(&statements->node.statement->items);
+      item->type = STMT_DECL;
+      item->declaration = declaration;
+      continue;
+    }
+    ast_expression* expr = parse_return_statement(parser);
+    ast_statement_item* item =
+        array_push_back(&statements->node.statement->items);
+    item->type = STMT_RET;
+    item->expression = expr;
+  }
+
+  consume_punctuator(parser, "}");
+  return statements;
 }
 
 static ast_node* parse_function_definition(parser* parser) {
   consume_keyword(parser, "int");
-  consume_any_identifier(parser);
+  consume_identifier(parser);
 
   consume_punctuator(parser, "(");
   consume_keyword(parser, "void");
   consume_punctuator(parser, ")");
 
-  consume_punctuator(parser, "{");
-  ast_node* node = parse_statement(parser);
-  consume_punctuator(parser, "}");
-  return node;
+  return parse_compound_statement(parser);
 }
 
 ast_node* parse(array* tokens) {
