@@ -79,6 +79,10 @@ static void prettyprint_ast_return_statement(ast_statement* statement,
 //! Prints the `ast` expression. `depth` is the node's depth within the entire
 //! AST.
 static void prettyprint_ast_expression(ast_expression* ast, size_t depth) {
+  if (!ast) {
+    return;
+  }
+
   switch (ast->type) {
     case EXPR:
       print_ast_expression_node(ast->node.expression, depth);

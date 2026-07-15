@@ -232,6 +232,53 @@ void test_parser_relational_and_logical_operators(void) {
   destroy_tokens(&tokens);
 }
 
+void test_parser_assignment(void) {
+  char text[] =
+      "int main(void){ int var1 = 1; int var2 = 2; return var1 + var2;}";
+  array tokens = lex(text, "test.c");
+  ast_node* tree = parse(&tokens);
+  ast_node* root = tree;
+  prettyprint_ast(tree);
+
+  TEST_ASSERT_EQUAL(AST_STMNT, tree->node_type);
+  TEST_ASSERT_EQUAL(3, tree->node.statement->items.size);
+
+  ast_statement_item* item = array_at(&tree->node.statement->items, 0);
+  TEST_ASSERT_EQUAL(STMT_DECL, item->type);
+  ast_declaration* decl = item->declaration;
+  token* ident = decl->identifier;
+  TEST_ASSERT_EQUAL_STRING_LEN("var1", ident->loc, ident->size);
+  ast_expression* expr = decl->expression;
+  TEST_ASSERT_EQUAL(EXPR_CONST, expr->type);
+
+  item = array_at(&tree->node.statement->items, 1);
+  TEST_ASSERT_EQUAL(STMT_DECL, item->type);
+  decl = item->declaration;
+  ident = decl->identifier;
+  TEST_ASSERT_EQUAL_STRING_LEN("var2", ident->loc, ident->size);
+  expr = decl->expression;
+  TEST_ASSERT_EQUAL(EXPR_CONST, expr->type);
+
+  item = array_at(&tree->node.statement->items, 2);
+  TEST_ASSERT_EQUAL(STMT_RET, item->type);
+  expr = item->expression;
+  TEST_ASSERT_EQUAL(EXPR, expr->type);
+  TEST_ASSERT_EQUAL(OP_ADD, expr->node.expression->op->op_type);
+
+  ast_expression* lhs = expr->node.expression->lhs;
+  TEST_ASSERT_EQUAL(EXPR_VAR, lhs->type);
+  token* var = lhs->node.variable->tok;
+  TEST_ASSERT_EQUAL_STRING_LEN("var1", var->loc, var->size);
+
+  ast_expression* rhs = expr->node.expression->rhs;
+  TEST_ASSERT_EQUAL(EXPR_VAR, rhs->type);
+  var = rhs->node.variable->tok;
+  TEST_ASSERT_EQUAL_STRING_LEN("var2", var->loc, var->size);
+
+  ast_destroy(root);
+  destroy_tokens(&tokens);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_parser_basic);
@@ -239,5 +286,6 @@ int main(void) {
   RUN_TEST(test_parser_binary_expression);
   RUN_TEST(test_parser_bit_operators);
   RUN_TEST(test_parser_relational_and_logical_operators);
+  RUN_TEST(test_parser_assignment);
   return UNITY_END();
 }
