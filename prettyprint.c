@@ -16,14 +16,19 @@ static void print_tabs(size_t depth) {
   }
 }
 
-//! Prints a variable `ast` node. `depth` is the depth of the node within the
-//! whole AST.
-static void print_ast_variable(ast_variable* ast, size_t depth) {
-  token* tok = ast->tok;
+//! Prints a token `tok`. `depth` is the depth of the node within the whole AST.
+static void print_token(token* tok, size_t depth) {
   char* str = strndup(tok->loc, tok->size);
   print_tabs(depth);
   printf("(Variable: %s)\n", str);
   free(str);
+}
+
+//! Prints a variable `ast` node. `depth` is the depth of the node within the
+//! whole AST.
+static void print_ast_variable(ast_variable* ast, size_t depth) {
+  token* tok = ast->tok;
+  print_token(tok, depth);
 }
 
 //! Prints a constant `ast` node. `depth` is the depth of the node within the
@@ -63,17 +68,52 @@ static void print_ast_expression_node(ast_expression_node* ast, size_t depth) {
   printf(")\n");
 }
 
-// TODO: Temporary.
-static void prettyprint_ast_return_statement(ast_statement* statement,
+static void prettyprint_ast_return_statement(ast_statement_item* return_item,
                                              size_t depth) {
   print_tabs(depth);
   printf("(Return: \n");
+  prettyprint_ast_expression(return_item->expression, depth + 1);
+  print_tabs(depth);
+  printf(")\n");
+}
 
-  ast_statement_item* item = array_at(&statement->items, 0);
-  prettyprint_ast_expression(item->expression, depth + 1);
+static void prettyprint_ast_declaration(ast_declaration* declaration,
+                                        size_t depth) {
+  print_tabs(depth);
+  // TODO: Print type as well.
+  printf("(Declaration, type: int\n");
+
+  print_tabs(depth);
+  printf(" ident: \n");
+  print_token(declaration->identifier, depth + 1);
+
+  if (declaration->expression) {
+    print_tabs(depth);
+    printf(" expr: \n");
+    prettyprint_ast_expression(declaration->expression, depth + 1);
+  }
 
   print_tabs(depth);
   printf(")\n");
+}
+
+//! Prints all block items within `statement`. `depth` is the node's depth
+//! within the entire AST.
+static void prettyprint_ast_statement(ast_statement* statement, size_t depth) {
+  for (size_t i = 0; i < statement->items.size; ++i) {
+    ast_statement_item* item = array_at(&statement->items, i);
+    switch (item->type) {
+      case STMT_EXPR:
+        prettyprint_ast_expression(item->expression, depth);
+        break;
+      case STMT_DECL:
+        prettyprint_ast_declaration(item->declaration, depth);
+        break;
+      case STMT_RET:
+        prettyprint_ast_return_statement(item, depth);
+        break;
+    }
+  }
 }
 
 //! Prints the `ast` expression. `depth` is the node's depth within the entire
@@ -100,7 +140,7 @@ static void prettyprint_ast_expression(ast_expression* ast, size_t depth) {
 static void prettyprint_ast_internal(ast_node* ast) {
   switch (ast->node_type) {
     case AST_STMNT:
-      prettyprint_ast_return_statement(ast->node.statement, /*depth=*/0);
+      prettyprint_ast_statement(ast->node.statement, /*depth=*/0);
       break;
     case AST_EXPR:
       prettyprint_ast_expression(ast->node.expression, /*depth=*/0);
