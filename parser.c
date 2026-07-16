@@ -569,10 +569,12 @@ static ast_expression* parse_expression_internal(parser* parser,
   return lhs;
 }
 
+//! Parses expression.
 ast_expression* parse_expression(parser* parser) {
   return parse_expression_internal(parser, /*min_pred=*/1);
 }
 
+//! Returns an AST node with an empty statement.
 static ast_node* create_statement(void) {
   ast_node* node = calloc_safe(/*nelem=*/1, sizeof(ast_node));
   node->node_type = AST_STMNT;
@@ -605,6 +607,7 @@ static ast_declaration* parse_ast_declaration(parser* parser) {
   return declaration;
 }
 
+//! Parses a return statement.
 static ast_expression* parse_return_statement(parser* parser) {
   consume_keyword(parser, "return");
   ast_expression* expression = parse_expression(parser);
@@ -612,6 +615,9 @@ static ast_expression* parse_return_statement(parser* parser) {
   return expression;
 }
 
+//! Parses a compound statement. A compound statement is a statement enclosed
+//! with curly brackets "{}". It may contain multiple declarations and/or other
+//! statements. It may also be empty.
 static ast_node* parse_compound_statement(parser* parser) {
   consume_punctuator(parser, "{");
   ast_node* statements = create_statement();
@@ -660,10 +666,14 @@ ast_node* parse(array* tokens) {
 void ast_destroy(ast_node*);
 static void destroy_ast_expression(ast_expression*);
 
+//! Destroys `var`.
 static void destroy_ast_variable(ast_variable* var) { free(var); }
 
+//! Destroys `constant`.
 static void destroy_ast_constant(ast_constant* constant) { free(constant); }
 
+//! Destroys an AST expression `node`. Recursively destroys `node`'s left and
+//! right hand sides.
 static void destroy_ast_expression_node(ast_expression_node* node) {
   destroy_ast_expression(node->lhs);
   destroy_ast_expression(node->rhs);
@@ -671,6 +681,7 @@ static void destroy_ast_expression_node(ast_expression_node* node) {
   free(node);
 }
 
+//! Recursively destroys the entire expression tree `expr`.
 static void destroy_ast_expression(ast_expression* expr) {
   if (!expr) {
     return;
@@ -690,11 +701,13 @@ static void destroy_ast_expression(ast_expression* expr) {
   free(expr);
 }
 
+//! Destroys `declaration`.
 static void destroy_ast_declaration(ast_declaration* declaration) {
   destroy_ast_expression(declaration->expression);
   free(declaration);
 }
 
+//! Destroys a statement `item`.
 static void destroy_ast_statement_item(ast_statement_item* item) {
   switch (item->type) {
     case STMT_DECL:
@@ -709,6 +722,7 @@ static void destroy_ast_statement_item(ast_statement_item* item) {
   }
 }
 
+//! Destroys all items within the statement `stmt`.
 static void destroy_ast_statement(ast_statement* stmt) {
   for (size_t i = 0; i < stmt->items.size; ++i) {
     ast_statement_item* item = array_at(&stmt->items, i);

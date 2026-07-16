@@ -147,9 +147,9 @@ typedef struct ast_declaration {
 typedef enum ast_statement_item_type {
   //! Declaration.
   STMT_DECL,
-  //! Expression statement.
+  //! Expression statement item.
   STMT_EXPR,
-  //! Return statement.
+  //! Return statement item.
   STMT_RET,
 } ast_statement_item_type;
 
