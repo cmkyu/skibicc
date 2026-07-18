@@ -548,6 +548,10 @@ static ast_expression* parse_expression_internal(parser* parser,
     if (!get_binary_op_type(tok, &op_type)) {
       break;
     }
+    if (op_type == OP_ASSIGN && lhs->type == EXPR_CONST) {
+      error_tok_fmt(tok, "Expression is not assignable.");
+    }
+
     uint64_t pred = get_precedence(op_type);
     if (pred < min_pred) {
       break;
@@ -624,6 +628,15 @@ static ast_node* parse_compound_statement(parser* parser) {
 
   for (token* tok = peek_token(parser); !is_punctuator_token(tok, "}");
        tok = peek_token(parser)) {
+    if (is_keyword_token(tok, "return")) {
+      ast_expression* expr = parse_return_statement(parser);
+      ast_statement_item* item =
+          array_push_back(&statements->node.statement->items);
+      item->type = STMT_RET;
+      item->expression = expr;
+      continue;
+    }
+
     ast_declaration* declaration = parse_ast_declaration(parser);
     if (declaration) {
       ast_statement_item* item =
@@ -632,10 +645,11 @@ static ast_node* parse_compound_statement(parser* parser) {
       item->declaration = declaration;
       continue;
     }
-    ast_expression* expr = parse_return_statement(parser);
+
+    ast_expression* expr = parse_expression(parser);
     ast_statement_item* item =
         array_push_back(&statements->node.statement->items);
-    item->type = STMT_RET;
+    item->type = STMT_EXPR;
     item->expression = expr;
   }
 

@@ -2,7 +2,9 @@
 #define SKIBICC_PARSER_H
 
 #include "array.h"
+#include "hashmap.h"
 #include "lexer.h"
+#include "list.h"
 
 //! Represents types of AST nodes.
 typedef enum ast_node_type {
@@ -105,17 +107,15 @@ typedef enum ast_expression_type {
   EXPR_CONST,
 } ast_expression_type;
 
-typedef struct ast_expression ast_expression;
-
 //! Represents a single expression AST node.
 typedef struct ast_expression_node {
   //! Operator of the expression. Can be NULL, which means this is a terminal
   //! expression (constant or variable).
   ast_operator* op;
   //! Left hand side of the expression. Always populated.
-  ast_expression* lhs;
+  struct ast_expression* lhs;
   //! Right hand side of the expression. Populated if `op` is a binary operator.
-  ast_expression* rhs;
+  struct ast_expression* rhs;
 } ast_expression_node;
 
 //! Represents an AST for a full expression.
@@ -151,6 +151,8 @@ typedef enum ast_statement_item_type {
   STMT_EXPR,
   //! Return statement item.
   STMT_RET,
+  //! Nested statement.
+  STMT_NESTED,
 } ast_statement_item_type;
 
 //! Block item within a statement.
@@ -162,6 +164,8 @@ typedef struct ast_statement_item {
   ast_declaration* declaration;
   //! Only used if `type` is `STMT_EXPR` or `STMT_RET`.
   ast_expression* expression;
+  //! Only used if `type` is `STMT_NESTED`.
+  struct ast_statement* statement;
 } ast_statement_item;
 
 //! Represents a statement.
@@ -178,9 +182,15 @@ struct ast_node {
   } node;
 };
 
+typedef struct scope {
+  hashmap var_map;
+} scope;
+
 typedef struct parser {
   array* tokens;
   size_t cur;
+  //! A LIFO stack of scopes. The most recent scope is at the top.
+  list* scopes;
 } parser;
 
 ast_node* parse(array* tokens);
