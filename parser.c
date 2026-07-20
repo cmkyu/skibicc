@@ -548,6 +548,7 @@ static ast_expression* parse_expression_internal(parser* parser,
     if (!get_binary_op_type(tok, &op_type)) {
       break;
     }
+    // TODO: Probably needs to be more fine-grained than this.
     if (op_type == OP_ASSIGN && lhs->type == EXPR_CONST) {
       error_tok_fmt(tok, "Expression is not assignable.");
     }
@@ -619,6 +620,12 @@ static ast_expression* parse_return_statement(parser* parser) {
   return expression;
 }
 
+static ast_expression* parse_expression_statement(parser* parser) {
+  ast_expression* expression = parse_expression(parser);
+  consume_punctuator(parser, ";");
+  return expression;
+}
+
 //! Parses a compound statement. A compound statement is a statement enclosed
 //! with curly brackets "{}". It may contain multiple declarations and/or other
 //! statements. It may also be empty.
@@ -646,7 +653,7 @@ static ast_node* parse_compound_statement(parser* parser) {
       continue;
     }
 
-    ast_expression* expr = parse_expression(parser);
+    ast_expression* expr = parse_expression_statement(parser);
     ast_statement_item* item =
         array_push_back(&statements->node.statement->items);
     item->type = STMT_EXPR;

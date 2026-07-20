@@ -234,14 +234,15 @@ void test_parser_relational_and_logical_operators(void) {
 
 void test_parser_assignment(void) {
   char text[] =
-      "int main(void){ int var1 = 1; int var2 = 2; return var1 + var2;}";
+      "int main(void){ int var1 = 1; int var2 = 2; var1 = var1 + var2; return "
+      "var1;}";
   array tokens = lex(text, "test.c");
   ast_node* tree = parse(&tokens);
   ast_node* root = tree;
   prettyprint_ast(tree);
 
   TEST_ASSERT_EQUAL(AST_STMNT, tree->node_type);
-  TEST_ASSERT_EQUAL(3, tree->node.statement->items.size);
+  TEST_ASSERT_EQUAL(4, tree->node.statement->items.size);
 
   ast_statement_item* item = array_at(&tree->node.statement->items, 0);
   TEST_ASSERT_EQUAL(STMT_DECL, item->type);
@@ -260,10 +261,10 @@ void test_parser_assignment(void) {
   TEST_ASSERT_EQUAL(EXPR_CONST, expr->type);
 
   item = array_at(&tree->node.statement->items, 2);
-  TEST_ASSERT_EQUAL(STMT_RET, item->type);
+  TEST_ASSERT_EQUAL(STMT_EXPR, item->type);
   expr = item->expression;
   TEST_ASSERT_EQUAL(EXPR, expr->type);
-  TEST_ASSERT_EQUAL(OP_ADD, expr->node.expression->op->op_type);
+  TEST_ASSERT_EQUAL(OP_ASSIGN, expr->node.expression->op->op_type);
 
   ast_expression* lhs = expr->node.expression->lhs;
   TEST_ASSERT_EQUAL(EXPR_VAR, lhs->type);
@@ -271,9 +272,25 @@ void test_parser_assignment(void) {
   TEST_ASSERT_EQUAL_STRING_LEN("var1", var->loc, var->size);
 
   ast_expression* rhs = expr->node.expression->rhs;
+  TEST_ASSERT_EQUAL(EXPR, rhs->type);
+  TEST_ASSERT_EQUAL(OP_ADD, rhs->node.expression->op->op_type);
+
+  lhs = rhs->node.expression->lhs;
+  TEST_ASSERT_EQUAL(EXPR_VAR, lhs->type);
+  var = lhs->node.variable->tok;
+  TEST_ASSERT_EQUAL_STRING_LEN("var1", var->loc, var->size);
+
+  rhs = rhs->node.expression->rhs;
   TEST_ASSERT_EQUAL(EXPR_VAR, rhs->type);
   var = rhs->node.variable->tok;
   TEST_ASSERT_EQUAL_STRING_LEN("var2", var->loc, var->size);
+
+  item = array_at(&tree->node.statement->items, 3);
+  TEST_ASSERT_EQUAL(STMT_RET, item->type);
+  expr = item->expression;
+  TEST_ASSERT_EQUAL(EXPR_VAR, expr->type);
+  var = expr->node.variable->tok;
+  TEST_ASSERT_EQUAL_STRING_LEN("var1", var->loc, var->size);
 
   ast_destroy(root);
   destroy_tokens(&tokens);
