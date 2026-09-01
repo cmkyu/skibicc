@@ -136,7 +136,7 @@ This is a personal project, but contributions, suggestions, and bug reports are 
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details (if one exists).
+This project is licensed under the MIT License. See the `LICENSE` file for details.
 
 ## Acknowledgements
 
